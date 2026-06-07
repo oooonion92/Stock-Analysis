@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <style>
+    html, body {
+      margin: 0;
+      width: 1200px;
+      height: 760px;
+      background: #f7f8f5;
+      font-family: "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif;
+      overflow: hidden;
+    }
+    svg { display: block; width: 1200px; height: 760px; }
+    .title { font-size: 34px; font-weight: 850; fill: #10223b; }
+    .subtitle { font-size: 16px; fill: #5d665a; }
+    .label { font-size: 16px; font-weight: 800; fill: #17263d; }
+    .small { font-size: 13px; fill: #47566d; }
+    .callout { font-size: 16px; font-weight: 850; fill: #17263d; }
+    .callout-small { font-size: 12px; fill: #516078; }
+  </style>
+</head>
+<body>
+<svg viewBox="0 0 1200 760" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AI高多层PCB嵌入式3D叠层结构示意图">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#fbfcf8"/>
+      <stop offset="1" stop-color="#edf2eb"/>
+    </linearGradient>
+    <linearGradient id="solder" x1="0" x2="1">
+      <stop offset="0" stop-color="#1d713d"/>
+      <stop offset=".55" stop-color="#2c914c"/>
+      <stop offset="1" stop-color="#166236"/>
+    </linearGradient>
+    <linearGradient id="copper" x1="0" x2="1">
+      <stop offset="0" stop-color="#8c4a1d"/>
+      <stop offset=".25" stop-color="#f3ae61"/>
+      <stop offset=".55" stop-color="#cc7428"/>
+      <stop offset=".8" stop-color="#f7c08a"/>
+      <stop offset="1" stop-color="#763b13"/>
+    </linearGradient>
+    <linearGradient id="via" x1="0" x2="1">
+      <stop offset="0" stop-color="#5d2b0d"/>
+      <stop offset=".2" stop-color="#b96623"/>
+      <stop offset=".48" stop-color="#ffd596"/>
+      <stop offset=".78" stop-color="#a4551d"/>
+      <stop offset="1" stop-color="#4e2208"/>
+    </linearGradient>
+    <linearGradient id="hole" x1="0" x2="1">
+      <stop offset="0" stop-color="#3c342b"/>
+      <stop offset=".5" stop-color="#8a8178"/>
+      <stop offset="1" stop-color="#2c261f"/>
+    </linearGradient>
+    <linearGradient id="resin" x1="0" x2="1">
+      <stop offset="0" stop-color="#fff1ba"/>
+      <stop offset=".5" stop-color="#fff9dc"/>
+      <stop offset="1" stop-color="#ead58e"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0" x2="1">
+      <stop offset="0" stop-color="#d5e4bd"/>
+      <stop offset=".52" stop-color="#f9efc1"/>
+      <stop offset="1" stop-color="#bfce9f"/>
+    </linearGradient>
+    <linearGradient id="frontWall" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#d5d5c9"/>
+      <stop offset=".45" stop-color="#c3c7b6"/>
+      <stop offset="1" stop-color="#aeb4a2"/>
+    </linearGradient>
+    <linearGradient id="sideWall" x1="0" x2="1">
+      <stop offset="0" stop-color="#bec4b2"/>
+      <stop offset="1" stop-color="#929b88"/>
+    </linearGradient>
+    <pattern id="glass" width="18" height="18" patternUnits="userSpaceOnUse">
+      <path d="M0 4 H18 M0 13 H18" stroke="#6ea06d" stroke-width="3" opacity=".32"/>
+      <path d="M4 0 V18 M13 0 V18" stroke="#6ea06d" stroke-width="3" opacity=".24"/>
+    </pattern>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="20" stdDeviation="18" flood-color="#26313f" flood-opacity=".18"/>
+    </filter>
+    <filter id="soft" x="-20%" y="-30%" width="150%" height="170%">
+      <feDropShadow dx="3" dy="6" stdDeviation="4" flood-color="#693818" flood-opacity=".22"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#777465"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="760" rx="24" fill="url(#bg)"/>
+  <text x="56" y="58" class="title">AI 高多层 PCB 3D 叠层模型 · 嵌入式通孔版</text>
+  <text x="58" y="88" class="subtitle">在“写实材质混合版”基础上增加实体侧壁、层间遮挡和孔壁环，减少通孔漂浮感；仍为研究示意，非真实比例</text>
+
+  <g filter="url(#shadow)">
+    <rect x="42" y="112" width="1116" height="584" rx="18" fill="#fffdf8" stroke="#dacfb8"/>
+  </g>
+
+  <g id="model" transform="translate(42,16)">
+    <g id="solid-body">
+      <polygon points="238,178 760,178 704,260 174,260" fill="url(#solder)" stroke="#15532d" stroke-width="3"/>
+      <polygon points="174,260 704,260 660,590 120,590" fill="url(#frontWall)" opacity=".42"/>
+      <polygon points="704,260 760,178 726,506 660,590" fill="url(#sideWall)" opacity=".52"/>
+    </g>
+
+    <g id="internal-layers">
+      <polygon points="202,276 742,276 710,286 170,286" fill="url(#copper)"/>
+      <polygon points="190,300 730,300 698,336 158,336" fill="url(#resin)"/>
+      <polygon points="190,300 730,300 698,336 158,336" fill="url(#glass)" opacity=".95"/>
+      <polygon points="180,354 720,354 688,366 148,366" fill="url(#copper)"/>
+      <polygon points="172,382 712,382 680,430 140,430" fill="url(#core)"/>
+      <polygon points="172,382 712,382 680,430 140,430" fill="url(#glass)" opacity=".72"/>
+      <polygon points="164,448 704,448 672,460 132,460" fill="url(#copper)"/>
+      <polygon points="156,478 696,478 664,514 124,514" fill="url(#resin)"/>
+      <polygon points="156,478 696,478 664,514 124,514" fill="url(#glass)" opacity=".95"/>
+      <polygon points="148,532 688,532 656,544 116,544" fill="url(#copper)"/>
+      <polygon points="140,560 680,560 648,590 108,590" fill="url(#solder)"/>
+    </g>
+
+    <g id="edge-lines" opacity=".65" stroke="#777465" stroke-width="1.3">
+      <line x1="170" y1="286" x2="710" y2="286"/>
+      <line x1="158" y1="336" x2="698" y2="336"/>
+      <line x1="148" y1="366" x2="688" y2="366"/>
+      <line x1="140" y1="430" x2="680" y2="430"/>
+      <line x1="132" y1="460" x2="672" y2="460"/>
+      <line x1="124" y1="514" x2="664" y2="514"/>
+      <line x1="116" y1="544" x2="656" y2="544"/>
+    </g>
+
+    <g id="top-traces" stroke="url(#copper)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none" filter="url(#soft)">
+      <path d="M264 205 H426"/>
+      <path d="M486 222 H660"/>
+      <path d="M595 196 V254"/>
+      <path d="M660 230 L708 214 L724 236 L768 224"/>
+    </g>
+
+    <g id="embedded-vias" filter="url(#soft)">
+      <g>
+        <ellipse cx="327" cy="212" rx="27" ry="12" fill="url(#copper)" stroke="#6b3210" stroke-width="2"/>
+        <ellipse cx="327" cy="212" rx="15" ry="6" fill="url(#hole)"/>
+        <rect x="313" y="212" width="28" height="338" rx="14" fill="url(#via)" stroke="#6b3210" stroke-width="2"/>
+        <ellipse cx="327" cy="354" rx="20" ry="8" fill="url(#copper)" opacity=".75"/>
+        <ellipse cx="327" cy="448" rx="20" ry="8" fill="url(#copper)" opacity=".75"/>
+        <ellipse cx="327" cy="550" rx="22" ry="9" fill="url(#copper)" stroke="#6b3210" stroke-width="2"/>
+        <ellipse cx="327" cy="550" rx="12" ry="5" fill="url(#hole)"/>
+      </g>
+      <g>
+        <ellipse cx="678" cy="220" rx="28" ry="12" fill="url(#copper)" stroke="#6b3210" stroke-width="2"/>
+        <ellipse cx="678" cy="220" rx="16" ry="6" fill="url(#hole)"/>
+        <rect x="664" y="220" width="28" height="330" rx="14" fill="url(#via)" stroke="#6b3210" stroke-width="2"/>
+        <ellipse cx="678" cy="354" rx="20" ry="8" fill="url(#copper)" opacity=".75"/>
+        <ellipse cx="678" cy="448" rx="20" ry="8" fill="url(#copper)" opacity=".75"/>
+        <ellipse cx="678" cy="550" rx="22" ry="9" fill="url(#copper)" stroke="#6b3210" stroke-width="2"/>
+        <ellipse cx="678" cy="550" rx="12" ry="5" fill="url(#hole)"/>
+      </g>
+      <g>
+        <ellipse cx="608" cy="224" rx="18" ry="8" fill="url(#copper)" stroke="#6b3210" stroke-width="2"/>
+        <ellipse cx="608" cy="224" rx="9" ry="4" fill="url(#hole)"/>
+        <rect x="600" y="224" width="16" height="70" rx="8" fill="url(#via)" stroke="#6b3210" stroke-width="2"/>
+        <ellipse cx="608" cy="294" rx="11" ry="5" fill="url(#hole)" stroke="#6b3210" stroke-width="1.5"/>
+      </g>
+      <g>
+        <ellipse cx="432" cy="236" rx="20" ry="9" fill="url(#copper)" stroke="#6b3210" stroke-width="2"/>
+        <ellipse cx="432" cy="236" rx="10" ry="4" fill="url(#hole)"/>
+        <rect x="424" y="236" width="16" height="126" rx="8" fill="url(#via)" stroke="#6b3210" stroke-width="2"/>
+        <ellipse cx="432" cy="362" rx="11" ry="5" fill="url(#hole)" stroke="#6b3210" stroke-width="1.5"/>
+      </g>
+    </g>
+
+    <g id="labels">
+      <text x="116" y="260" class="label" text-anchor="end">L1 顶层</text>
+      <line x1="122" y1="255" x2="196" y2="255" stroke="#777465" stroke-width="2"/>
+      <text x="116" y="360" class="label" text-anchor="end">内层铜</text>
+      <line x1="122" y1="355" x2="174" y2="355" stroke="#777465" stroke-width="2"/>
+      <text x="116" y="452" class="label" text-anchor="end">电源/地层</text>
+      <line x1="122" y1="447" x2="164" y2="447" stroke="#777465" stroke-width="2"/>
+      <text x="116" y="536" class="label" text-anchor="end">信号层</text>
+      <line x1="122" y1="531" x2="150" y2="531" stroke="#777465" stroke-width="2"/>
+      <text x="116" y="596" class="label" text-anchor="end">L18 底层</text>
+      <line x1="122" y1="591" x2="140" y2="591" stroke="#777465" stroke-width="2"/>
+    </g>
+
+    <g id="callouts">
+      <line x1="620" y1="210" x2="842" y2="152" stroke="#777465" stroke-width="2" marker-end="url(#arrow)"/>
+      <text x="856" y="150" class="callout">表层铜线路</text>
+      <text x="856" y="172" class="callout-small">铜箔蚀刻形成信号、电源和接地路径</text>
+      <line x1="688" y1="310" x2="842" y2="236" stroke="#777465" stroke-width="2" marker-end="url(#arrow)"/>
+      <text x="856" y="234" class="callout">电镀通孔 / 盲孔</text>
+      <text x="856" y="256" class="callout-small">孔壁镀铜，并在层间形成焊盘/环</text>
+      <line x1="704" y1="318" x2="842" y2="332" stroke="#777465" stroke-width="2" marker-end="url(#arrow)"/>
+      <text x="856" y="336" class="callout">Prepreg：树脂 + 电子布</text>
+      <text x="856" y="358" class="callout-small">层间粘结、低 Dk/Df、低 CTE</text>
+      <line x1="680" y1="412" x2="842" y2="424" stroke="#777465" stroke-width="2" marker-end="url(#arrow)"/>
+      <text x="856" y="428" class="callout">Core/CCL：芯板</text>
+      <text x="856" y="450" class="callout-small">铜箔 + 树脂 + 玻纤布压合</text>
+    </g>
+
+    <g id="legend">
+      <rect x="812" y="506" width="314" height="126" rx="12" fill="#f8fbff" stroke="#d6ceb8"/>
+      <text x="832" y="534" class="callout">颜色与材料对应</text>
+      <rect x="834" y="552" width="18" height="18" rx="4" fill="url(#copper)"/>
+      <text x="862" y="566" class="small">橙色扁平层：铜箔/蚀刻线路</text>
+      <rect x="834" y="578" width="18" height="18" rx="4" fill="url(#via)" stroke="#6b3210"/>
+      <text x="862" y="592" class="small">圆柱：孔壁电镀铜，不是悬空柱</text>
+      <rect x="834" y="604" width="18" height="18" rx="4" fill="url(#resin)"/>
+      <text x="862" y="618" class="small">淡黄色：树脂/预浸料</text>
+      <rect x="834" y="630" width="18" height="12" rx="3" fill="url(#glass)"/>
+      <text x="862" y="641" class="small">斜纹/网格：电子布/玻纤骨架</text>
+    </g>
+
+    <text x="418" y="670" text-anchor="middle" font-size="30" font-weight="850" fill="#10223b">高多层 PCB 立体叠层与嵌入式孔结构</text>
+  </g>
+</svg>
+</body>
+</html>

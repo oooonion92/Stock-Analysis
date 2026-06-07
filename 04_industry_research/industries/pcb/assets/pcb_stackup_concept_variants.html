@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <style>
+    html, body {
+      margin: 0;
+      width: 1200px;
+      height: 760px;
+      font-family: "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif;
+      color: #0f2138;
+      overflow: hidden;
+    }
+    svg { display: block; width: 1200px; height: 760px; }
+    .title { font-size: 34px; font-weight: 850; }
+    .subtitle { font-size: 16px; }
+    .label { font-size: 16px; font-weight: 800; }
+    .small { font-size: 13px; }
+    .callout { font-size: 16px; font-weight: 800; }
+    .callout-small { font-size: 12px; }
+    .legend-title { font-size: 16px; font-weight: 850; }
+  </style>
+</head>
+<body>
+<svg viewBox="0 0 1200 760" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgWhite" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fbfdff"/><stop offset="1" stop-color="#eef5fc"/></linearGradient>
+    <linearGradient id="bgTech" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#09131f"/><stop offset=".55" stop-color="#10233c"/><stop offset="1" stop-color="#0a1828"/></linearGradient>
+    <linearGradient id="bgHybrid" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f8faf7"/><stop offset="1" stop-color="#edf2ec"/></linearGradient>
+    <linearGradient id="copper" x1="0" x2="1"><stop offset="0" stop-color="#9c5724"/><stop offset=".42" stop-color="#f6b66c"/><stop offset=".75" stop-color="#c97028"/><stop offset="1" stop-color="#7e4118"/></linearGradient>
+    <linearGradient id="via" x1="0" x2="1"><stop offset="0" stop-color="#63300e"/><stop offset=".18" stop-color="#bc7028"/><stop offset=".48" stop-color="#ffd896"/><stop offset=".78" stop-color="#a45a20"/><stop offset="1" stop-color="#4e2409"/></linearGradient>
+    <linearGradient id="resin" x1="0" x2="1"><stop offset="0" stop-color="#fff1b9"/><stop offset=".55" stop-color="#fffbe2"/><stop offset="1" stop-color="#edd88c"/></linearGradient>
+    <linearGradient id="resinBlue" x1="0" x2="1"><stop offset="0" stop-color="#d9f0ff"/><stop offset=".5" stop-color="#effaff"/><stop offset="1" stop-color="#9fc9e7"/></linearGradient>
+    <linearGradient id="core" x1="0" x2="1"><stop offset="0" stop-color="#d6e6bf"/><stop offset=".52" stop-color="#faf0c3"/><stop offset="1" stop-color="#c3d5a1"/></linearGradient>
+    <linearGradient id="coreDark" x1="0" x2="1"><stop offset="0" stop-color="#284d4f"/><stop offset=".55" stop-color="#527e72"/><stop offset="1" stop-color="#244643"/></linearGradient>
+    <pattern id="glassWeave" width="18" height="18" patternUnits="userSpaceOnUse">
+      <path d="M0 4 H18 M0 13 H18" stroke="#6ea06d" stroke-width="3" opacity=".32"/>
+      <path d="M4 0 V18 M13 0 V18" stroke="#6ea06d" stroke-width="3" opacity=".24"/>
+    </pattern>
+    <pattern id="glassWeaveBright" width="18" height="18" patternUnits="userSpaceOnUse">
+      <path d="M0 4 H18 M0 13 H18" stroke="#78d2e5" stroke-width="3" opacity=".30"/>
+      <path d="M4 0 V18 M13 0 V18" stroke="#78d2e5" stroke-width="3" opacity=".24"/>
+    </pattern>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#21344d" flood-opacity=".18"/></filter>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#47d6ff" flood-opacity=".55"/></filter>
+    <filter id="soft" x="-12%" y="-12%" width="124%" height="134%"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#1f3045" flood-opacity=".18"/></filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="context-stroke"/></marker>
+  </defs>
+
+  <g id="root"></g>
+
+  <script>
+    const variant = new URLSearchParams(location.search).get("variant") || "whitepaper";
+    const cfgs = {
+      whitepaper: {
+        name: "工程白皮书版",
+        bg: "url(#bgWhite)", card: "#ffffff", cardStroke: "#d6e2ef", ink: "#10223b", muted: "#52627a",
+        top: "#218443", topStroke: "#0a6730", resin: "url(#resin)", core: "url(#core)", weave: "url(#glassWeave)",
+        arrow: "#6d7c91", note: "白底、精密线条、材料分色，适合深度报告正文和打印。"
+      },
+      tech: {
+        name: "半导体科技版",
+        bg: "url(#bgTech)", card: "#111f32", cardStroke: "#244968", ink: "#e8f5ff", muted: "#9db7cf",
+        top: "#1fb074", topStroke: "#4ce5a2", resin: "url(#resinBlue)", core: "url(#coreDark)", weave: "url(#glassWeaveBright)",
+        arrow: "#74c9f2", note: "深色背景、发光信号路径、芯片语境更强，适合汇报首页。"
+      },
+      hybrid: {
+        name: "写实材质混合版",
+        bg: "url(#bgHybrid)", card: "#fffdf8", cardStroke: "#dacfb8", ink: "#1f2b22", muted: "#65725e",
+        top: "#277c42", topStroke: "#15532d", resin: "url(#resin)", core: "url(#core)", weave: "url(#glassWeave)",
+        arrow: "#7b7567", note: "保留技术标注，同时强化玻纤纹理和层压材质感。"
+      }
+    };
+    const c = cfgs[variant];
+    const root = document.getElementById("root");
+    const ns = "http://www.w3.org/2000/svg";
+    function el(name, attrs = {}, parent = root) {
+      const node = document.createElementNS(ns, name);
+      for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+      parent.appendChild(node);
+      return node;
+    }
+    function text(x, y, value, cls, fill = c.ink, anchor = "start", parent = root) {
+      const node = el("text", { x, y, class: cls, fill, "text-anchor": anchor }, parent);
+      node.textContent = value;
+      return node;
+    }
+    function layer(points, fill, stroke = "none", parent = board) {
+      return el("polygon", { points, fill, stroke, "stroke-width": 2 }, parent);
+    }
+    el("rect", { width: 1200, height: 760, rx: 22, fill: c.bg });
+    if (variant === "tech") {
+      for (let i = 0; i < 18; i++) {
+        el("circle", { cx: 80 + i * 62, cy: 120 + (i % 5) * 98, r: 1.8, fill: "#5fdcff", opacity: .28 });
+        el("path", { d: `M${40 + i * 58} ${650 - (i % 4) * 88} C${200 + i * 18} ${510 - (i % 3) * 40}, ${820 - i * 12} ${180 + (i % 4) * 30}, 1130 ${96 + (i % 5) * 70}`, stroke: "#2a8fbc", "stroke-width": .8, fill: "none", opacity: .16 });
+      }
+    }
+    text(56, 58, `AI 高多层 PCB 叠层结构示意 · ${c.name}`, "title");
+    text(58, 88, c.note + " 颜色编码固定：铜箔/线路、树脂、电子布/玻纤、芯板/CCL、通孔/微孔。", "subtitle", c.muted);
+    el("rect", { x: 42, y: 112, width: 1116, height: 584, rx: 18, fill: c.card, stroke: c.cardStroke, filter: variant === "tech" ? "url(#glow)" : "url(#shadow)" });
+
+    const board = el("g", { id: "board", transform: "translate(36,24)" });
+    layer("238,178 760,178 704,260 174,260", c.top, c.topStroke);
+    [["M264 200 H425 Q437 200 437 209 Q437 218 425 218 H264 Q252 218 252 209 Q252 200 264 200Z"], ["M484 216 H660 Q672 216 672 225 Q672 234 660 234 H484 Q472 234 472 225 Q472 216 484 216Z"], ["M604 190 H626 Q637 190 637 201 V252 Q637 263 626 263 H604Z"]].forEach(d => el("path", { d, fill: "url(#copper)" }, board));
+    el("ellipse", { cx: 377, cy: 236, rx: 18, ry: 11, fill: "#ffc26d", stroke: "#8c4719", "stroke-width": 2 }, board);
+    el("ellipse", { cx: 651, cy: 235, rx: 18, ry: 11, fill: "#ffc26d", stroke: "#8c4719", "stroke-width": 2 }, board);
+    text(498, 162, "顶层：阻焊绿油 + 表层铜线路", "small", c.muted, "middle", board);
+
+    const layers = [
+      ["202,264 742,264 710,279 170,279", c.top], ["190,282 730,282 698,292 158,292", "url(#copper)"],
+      ["182,300 722,300 690,336 150,336", c.resin], ["176,344 716,344 684,356 144,356", "url(#copper)"],
+      ["170,364 710,364 678,416 138,416", c.core], ["164,426 704,426 672,438 132,438", "url(#copper)"],
+      ["158,448 698,448 666,484 126,484", c.resin], ["152,492 692,492 660,504 120,504", "url(#copper)"],
+      ["146,512 686,512 654,564 114,564", c.core], ["140,574 680,574 648,586 108,586", "url(#copper)"],
+      ["134,596 674,596 642,612 102,612", c.top]
+    ];
+    layers.forEach(([p, f]) => layer(p, f, "none"));
+    ["182,300 722,300 690,336 150,336", "170,364 710,364 678,416 138,416", "158,448 698,448 666,484 126,484", "146,512 686,512 654,564 114,564"].forEach(p => layer(p, c.weave, "none"));
+    [["248", "353", "548"], ["350", "435", "648"], ["230", "501", "470"], ["500", "580", "642"]].forEach(([x1, y, x2]) => el("path", { d: `M${x1} ${y} H${x2}`, stroke: "url(#copper)", "stroke-width": 12, "stroke-linecap": "round" }, board));
+    [[310,209,371],[662,217,363],[598,216,68]].forEach(([x,y,h], idx) => {
+      el("rect", { x, y, width: idx === 2 ? 18 : 34, height: h, rx: idx === 2 ? 9 : 17, fill: "url(#via)", stroke: "#66320f", "stroke-width": idx === 2 ? 2 : 3, filter: "url(#soft)" }, board);
+      if (idx < 2) {
+        el("ellipse", { cx: x + 17, cy: y + 1, rx: 17, ry: 8, fill: "#f0b567", stroke: "#66320f", "stroke-width": 3 }, board);
+        el("ellipse", { cx: x + 17, cy: y + h, rx: 17, ry: 8, fill: "#c77a32", stroke: "#66320f", "stroke-width": 3 }, board);
+      }
+    });
+
+    [["L1 顶层",116,272,196],["内层铜",116,353,172],["电源/地层",116,436,158],["信号层",116,502,152],["L18 底层",116,606,138]].forEach(([s,x,y,x2]) => {
+      text(x, y, s, "label", c.ink, "end", board);
+      el("line", { x1: x + 6, y1: y - 5, x2, y2: y - 5, stroke: c.arrow, "stroke-width": 2 }, board);
+    });
+    [["铜箔/铜线路","信号、电源、接地；高速板关注低粗糙度",608,225,842,142],
+     ["电镀通孔 / 微孔","钻孔后孔壁镀铜，形成层间导通",676,216,842,210],
+     ["Prepreg：树脂 + 电子布","层间粘结、低 Dk/Df、低 CTE",728,318,842,298],
+     ["Core/CCL：芯板","铜箔 + 树脂 + 玻纤布压合",718,388,842,384]].forEach(([a,b,x1,y1,x2,y2]) => {
+      el("line", { x1, y1, x2: x2 - 10, y2: y2 - 6, stroke: c.arrow, "stroke-width": 2, "marker-end": "url(#arrow)" }, board);
+      text(x2, y2, a, "callout", c.ink, "start", board);
+      text(x2, y2 + 22, b, "callout-small", c.muted, "start", board);
+    });
+    text(410, 664, "高多层 PCB 叠层压缩示意", "title", c.ink, "middle", board);
+
+    const lx = 820, ly = 510;
+    el("rect", { x: lx, y: ly, width: 304, height: 136, rx: 12, fill: variant === "tech" ? "#0c1a2b" : "#f8fbff", stroke: c.cardStroke });
+    text(lx + 18, ly + 28, "颜色与材料对应", "legend-title", c.ink);
+    [["url(#copper)","橙色扁平层：铜箔/蚀刻线路"],["url(#via)","圆柱：电镀通孔/微孔"],[c.resin,"淡黄色/淡蓝色：树脂/预浸料"],[c.weave,"斜纹/网格：电子布/玻纤骨架"]].forEach(([fill, s], i) => {
+      el("rect", { x: lx + 20, y: ly + 45 + i * 25, width: 18, height: 18, rx: 4, fill, stroke: i === 1 ? "#66320f" : "none" });
+      text(lx + 48, ly + 59 + i * 25, s, "small", c.muted);
+    });
+  </script>
+</svg>
+</body>
+</html>

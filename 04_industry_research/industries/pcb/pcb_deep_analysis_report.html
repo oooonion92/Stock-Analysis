@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PCB 拆解与产业链深度分析报告</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --paper: #ffffff;
+      --ink: #182235;
+      --muted: #5c667a;
+      --line: #dce2ec;
+      --copper: #c97935;
+      --resin: #6f95c6;
+      --glass: #8fc37e;
+      --mask: #3b9366;
+      --up: #e9f6ee;
+      --mid: #fff2df;
+      --down: #edf3ff;
+      --risk: #fff0f0;
+      --accent: #2b6cb0;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      line-height: 1.6;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 20px 72px;
+    }
+    header {
+      padding: 28px 0 22px;
+      border-bottom: 1px solid var(--line);
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: 34px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 40px 0 14px;
+      font-size: 24px;
+      border-left: 5px solid var(--accent);
+      padding-left: 12px;
+    }
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 18px;
+    }
+    p { margin: 8px 0 12px; }
+    .lede {
+      max-width: 940px;
+      color: var(--muted);
+      font-size: 17px;
+    }
+    .grid {
+      display: grid;
+      gap: 18px;
+    }
+    .cols-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+    }
+    .kpi {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .note {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 22px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+    }
+    th, td {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      vertical-align: top;
+      font-size: 14px;
+    }
+    th {
+      background: #eef2f8;
+      text-align: left;
+      font-weight: 700;
+    }
+    a { color: #1f5fa8; }
+
+    .section-box {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      margin: 18px 0;
+    }
+
+    .pcb-visual {
+      display: grid;
+      grid-template-columns: minmax(320px, 500px) minmax(280px, 1fr);
+      gap: 22px;
+      align-items: center;
+    }
+    .stackup-figure {
+      margin: 0;
+    }
+    .stackup-figure img {
+      display: block;
+      width: 100%;
+      max-width: 1080px;
+      margin: 0 auto;
+      border: 1px solid #d7e2ef;
+      border-radius: 10px;
+      box-shadow: 0 10px 22px rgba(24,34,53,.08);
+      background: #f7fbff;
+    }
+    .stackup-figure figcaption {
+      max-width: 980px;
+      margin: 12px auto 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .stack-wrap {
+      padding: 20px;
+      background: #fbfcff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .pcb-stack {
+      position: relative;
+      width: 100%;
+      max-width: 460px;
+      margin: 0 auto;
+      padding: 10px 0;
+    }
+    .layer {
+      height: 24px;
+      margin: 8px 0;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      text-shadow: 0 1px 1px rgba(0,0,0,.28);
+    }
+    .layer.mask { background: var(--mask); }
+    .layer.copper { background: var(--copper); }
+    .layer.prepreg {
+      height: 44px;
+      background:
+        repeating-linear-gradient(90deg, rgba(255,255,255,.28) 0 8px, rgba(255,255,255,.08) 8px 16px),
+        linear-gradient(0deg, var(--resin), var(--resin));
+    }
+    .layer.core {
+      height: 88px;
+      background:
+        linear-gradient(var(--copper) 0 16%, transparent 16% 33%, var(--resin) 33% 68%, transparent 68% 84%, var(--copper) 84% 100%);
+      border: 1px solid #bfc8d8;
+      color: var(--ink);
+      text-shadow: none;
+    }
+    .via {
+      position: absolute;
+      top: 58px;
+      left: 48%;
+      width: 34px;
+      height: 250px;
+      border-radius: 20px;
+      background: linear-gradient(90deg, #8f4b1e, #d58a49, #8f4b1e);
+      border: 2px solid #73401c;
+    }
+    .via::after {
+      content: "通孔/微孔：层间导通";
+      position: absolute;
+      left: 48px;
+      top: 96px;
+      white-space: nowrap;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 9px;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .real-board {
+      position: relative;
+      min-height: 455px;
+      padding: 18px;
+      background:
+        radial-gradient(circle at 24% 12%, rgba(255,255,255,.82), transparent 24%),
+        linear-gradient(180deg, #fbfdff, #edf3f9);
+      border: 1px solid #cfd8e6;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .iso-board {
+      position: relative;
+      width: min(100%, 460px);
+      height: 405px;
+      margin: 0 auto;
+    }
+    .iso-title {
+      position: absolute;
+      left: 138px;
+      bottom: 4px;
+      font-size: 24px;
+      font-weight: 800;
+      color: #1b2940;
+    }
+    .iso-top {
+      position: absolute;
+      left: 98px;
+      top: 24px;
+      width: 258px;
+      height: 72px;
+      background: linear-gradient(160deg, #45a63d, #188544);
+      clip-path: polygon(12% 0, 100% 0, 88% 100%, 0 100%);
+      border: 2px solid #0c6e36;
+      z-index: 20;
+      box-shadow: 0 8px 12px rgba(18,58,44,.18);
+    }
+    .iso-trace {
+      position: absolute;
+      height: 11px;
+      border-radius: 7px;
+      background: linear-gradient(90deg, #f6b25e, #b4621f);
+      box-shadow: 0 1px 0 rgba(255,255,255,.45), 0 2px 3px rgba(75,35,10,.22);
+    }
+    .iso-trace.t1 { left: 42px; top: 12px; width: 112px; transform: skewX(-24deg); }
+    .iso-trace.t2 { left: 118px; top: 34px; width: 126px; transform: skewX(-24deg); }
+    .iso-trace.t3 { left: 196px; top: 9px; width: 54px; transform: rotate(90deg) skewX(-18deg); transform-origin: left center; }
+    .iso-pad {
+      position: absolute;
+      width: 22px;
+      height: 15px;
+      border-radius: 50%;
+      background: #ffbd66;
+      border: 1px solid #884a18;
+    }
+    .iso-pad.p1 { left: 78px; top: 45px; }
+    .iso-pad.p2 { right: 48px; top: 44px; }
+    .iso-layer {
+      --left: 76px;
+      --top: 94px;
+      --h: 22px;
+      position: absolute;
+      left: var(--left);
+      top: var(--top);
+      width: 290px;
+      height: var(--h);
+      clip-path: polygon(9% 0, 100% 0, 91% 100%, 0 100%);
+      border-left: 1px solid rgba(43,50,62,.22);
+      border-bottom: 1px solid rgba(43,50,62,.28);
+      z-index: calc(18 - var(--i));
+      box-shadow: 0 2px 3px rgba(20,30,44,.12);
+    }
+    .iso-layer::after {
+      content: "";
+      position: absolute;
+      right: -22px;
+      top: 2px;
+      width: 28px;
+      height: calc(100% + 4px);
+      transform: skewY(-36deg);
+      transform-origin: left top;
+      background: rgba(0,0,0,.12);
+    }
+    .iso-layer.mask { background: linear-gradient(90deg, #1d7e40, #3ca957); }
+    .iso-layer.copper { background: linear-gradient(90deg, #a85a20, #f0aa58 42%, #ad5d21); }
+    .iso-layer.prepreg {
+      background:
+        repeating-linear-gradient(45deg, rgba(83,117,77,.18) 0 5px, rgba(255,255,255,.34) 5px 9px),
+        linear-gradient(90deg, #f5f1d2, #fff8dd);
+    }
+    .iso-layer.core {
+      background:
+        repeating-linear-gradient(45deg, rgba(74,116,69,.22) 0 5px, rgba(255,255,255,.30) 5px 9px),
+        linear-gradient(90deg, #d9e8c8, #fffbe6);
+    }
+    .iso-label {
+      position: absolute;
+      left: 14px;
+      width: 80px;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: right;
+      color: #26354d;
+    }
+    .iso-label::after {
+      content: "";
+      position: absolute;
+      left: 86px;
+      top: 8px;
+      width: 28px;
+      height: 1px;
+      background: #5f6f85;
+    }
+    .right-tag {
+      position: absolute;
+      right: 0;
+      width: 88px;
+      font-size: 12px;
+      line-height: 1.25;
+      color: #26354d;
+      font-weight: 700;
+      z-index: 60;
+    }
+    .right-tag::before {
+      content: "";
+      position: absolute;
+      left: -46px;
+      top: 7px;
+      width: 38px;
+      height: 1px;
+      background: #d28a32;
+      transform: rotate(-22deg);
+    }
+    .right-tag.total { top: 38px; right: 0; font-size: 13px; color: #10223b; }
+    .iso-via {
+      position: absolute;
+      top: 50px;
+      width: 26px;
+      height: 250px;
+      border-radius: 16px;
+      background: linear-gradient(90deg, #8a4616, #f2b15e 48%, #814116);
+      border: 2px solid #6d3510;
+      z-index: 35;
+      box-shadow: 5px 0 9px rgba(65,37,14,.22);
+    }
+    .iso-via::before,
+    .iso-via::after {
+      content: "";
+      position: absolute;
+      left: -2px;
+      width: 26px;
+      height: 11px;
+      border-radius: 50%;
+      background: linear-gradient(90deg, #a85a20, #ffd08a, #8a4616);
+      border: 2px solid #6d3510;
+    }
+    .iso-via::before { top: -4px; }
+    .iso-via::after { bottom: -4px; }
+    .iso-via.v1 { left: 144px; }
+    .iso-via.v2 { left: 302px; }
+    .buried-trace {
+      position: absolute;
+      left: 164px;
+      width: 132px;
+      height: 9px;
+      border-radius: 8px;
+      background: #d6802b;
+      z-index: 30;
+      box-shadow: 0 1px 2px rgba(75,35,10,.22);
+    }
+    .buried-trace.b1 { top: 154px; }
+    .buried-trace.b2 { top: 216px; left: 118px; width: 120px; }
+
+    .deep-company {
+      display: grid;
+      gap: 14px;
+      margin: 14px 0 22px;
+    }
+    .profile {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+    }
+    .profile h3 {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 0;
+    }
+    .profile-grid {
+      display: grid;
+      grid-template-columns: 1.05fr 1.2fr 1.1fr;
+      gap: 14px;
+    }
+    .mini-title {
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+    .profile ul {
+      padding-left: 18px;
+      margin: 6px 0;
+    }
+    .profile li { margin: 5px 0; }
+
+    .legend-list {
+      display: grid;
+      gap: 10px;
+    }
+    .legend-item {
+      display: grid;
+      grid-template-columns: 22px 1fr;
+      gap: 10px;
+      align-items: start;
+      font-size: 14px;
+    }
+    .swatch {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      margin-top: 2px;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      position: relative;
+    }
+    .flow-col {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      background: var(--paper);
+    }
+    .flow-col.up { background: var(--up); }
+    .flow-col.mid { background: var(--mid); }
+    .flow-col.down { background: var(--down); }
+    .flow-col h3 { margin-top: 0; }
+    .node {
+      margin: 9px 0;
+      padding: 9px 10px;
+      background: rgba(255,255,255,.82);
+      border: 1px solid rgba(0,0,0,.08);
+      border-radius: 7px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .arrow-row {
+      display: grid;
+      grid-template-columns: 1fr 32px 1fr 32px 1fr;
+      gap: 0;
+      align-items: center;
+      margin: 18px 0 4px;
+      color: var(--muted);
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .company-map {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 10px;
+      margin: 12px 0;
+      align-items: start;
+    }
+    .tag {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #eef2f8;
+      color: var(--muted);
+      font-size: 12px;
+      margin: 0 4px 5px 0;
+    }
+    .risk {
+      background: var(--risk);
+    }
+    .source-list li {
+      margin: 7px 0;
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 860px) {
+      .cols-2, .cols-3, .pcb-visual, .flow, .profile-grid {
+        grid-template-columns: 1fr;
+      }
+      .arrow-row { display: none; }
+      main { padding: 20px 12px 48px; }
+      h1 { font-size: 28px; }
+      .via::after {
+        left: 38px;
+        max-width: 170px;
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>PCB 拆解与产业链深度分析报告</h1>
+    <p class="lede">用一张板子的结构理解本轮 AI PCB 景气：下游算力平台升级，最终会反向拉动高端 CCL、铜箔、树脂、电子布、钻针和设备；真正要研究的是“卡点在哪里，谁能兑现”。</p>
+  </header>
+
+  <section>
+    <h2>一、核心结论</h2>
+    <div class="grid cols-3">
+      <div class="card">
+        <div class="kpi">1</div>
+        <h3>主线不是普通 PCB</h3>
+        <p>本轮景气不是总需求泛化改善，而是 AI 服务器、ASIC、交换机和 1.6T 光模块把 PCB 推向高层数、高频高速、高良率。</p>
+      </div>
+      <div class="card">
+        <div class="kpi">2</div>
+        <h3>卡点在有效产能</h3>
+        <p>高端板受压合、电镀、良率、客户认证、设备和材料约束，普通产能面积不能直接替代。</p>
+      </div>
+      <div class="card">
+        <div class="kpi">3</div>
+        <h3>上游材料变关键</h3>
+        <p>CCL、铜箔、树脂、电子布/玻纤、钻针和设备从配套环节变成制约交付和利润分配的核心变量。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>二、PCB 结构剖面图</h2>
+    <div class="section-box">
+      <figure class="stackup-figure">
+        <img src="assets/pcb_ai_hdi_3d_annotated.png" alt="AI高多层PCB和HDI结构三维示意图：展示表层铜线路、普通通孔、盲孔、埋孔、微孔HDI、层压结构、铜箔、树脂玻纤布、Prepreg和Core芯板">
+        <figcaption>这张图采用 3D 结构示意图作为主图，重点解释 AI 高多层 PCB / HDI 的空间结构、层压难度和孔型差异。普通通孔贯穿板体，盲孔连接表层与内部层，埋孔位于内部层之间，微孔/HDI 对应更细小的局部互连。图中铜箔、树脂+玻纤布、Prepreg 和 Core/芯板用于理解上游材料在板内的位置；真实产品的层数、厚度、孔径、走线密度和材料体系会随客户与应用场景变化。</figcaption>
+      </figure>
+      <div class="legend-list">
+        <div class="legend-item"><span class="swatch" style="background: var(--copper)"></span><div><strong>铜箔</strong>：导电层，被蚀刻成信号线、电源层和接地层。高速 PCB 看低粗糙度、厚度一致性和低损耗。</div></div>
+        <div class="legend-item"><span class="swatch" style="background: var(--resin)"></span><div><strong>树脂</strong>：绝缘和粘结体系，决定低 Dk/Df、耐热、低 CTE。PPO、碳氢树脂、活性酯是高频高速方向。</div></div>
+        <div class="legend-item"><span class="swatch" style="background: var(--glass)"></span><div><strong>电子布/玻纤</strong>：增强骨架，控制尺寸稳定、热膨胀和机械强度。高端方向包括 Low-Dk、Low-CTE、Q布。</div></div>
+        <div class="legend-item"><span class="swatch" style="background: #b46a30"></span><div><strong>通孔/微孔</strong>：钻孔后电镀铜，实现层间连接。板更厚、孔更小、材料更硬，钻针和设备要求更高。</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>三、上游到中游到下游的产业链图谱</h2>
+    <div class="arrow-row"><span>上游：材料/耗材/设备</span><span>→</span><span>中游：PCB 制造</span><span>→</span><span>下游：AI 应用</span></div>
+    <div class="flow">
+      <div class="flow-col up">
+        <h3>上游</h3>
+        <div class="node">CCL/覆铜板：M6-M9 高速材料</div>
+        <div class="node">铜箔：HVLP、RTF、载体铜箔</div>
+        <div class="node">树脂：PPO、碳氢、活性酯、双马</div>
+        <div class="node">电子布/玻纤：Low-Dk、Low-CTE、Q布</div>
+        <div class="node">钻针/设备：金刚石涂层钻、钻孔、曝光</div>
+      </div>
+      <div class="flow-col mid">
+        <h3>中游</h3>
+        <div class="node">高多层 PCB：高厚度、高压合次数</div>
+        <div class="node">HDI/M-SAP：细线宽线距、小孔径</div>
+        <div class="node">背板/中板：正交背板、低损耗互连</div>
+        <div class="node">ABF/IC载板：AI GPU/ASIC 封装底座</div>
+      </div>
+      <div class="flow-col down">
+        <h3>下游</h3>
+        <div class="node">GB300/Rubin：单柜 PCB 价值量提升</div>
+        <div class="node">ASIC 服务器：客户结构扩张</div>
+        <div class="node">高速交换机：高速低损耗材料升级</div>
+        <div class="node">1.6T 光模块：SLP、M-SAP 小板增量</div>
+        <div class="node">先进封装：ABF、玻璃基板相邻变量</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>四、核心矛盾与卡点</h2>
+    <table>
+      <thead><tr><th>问题</th><th>当前判断</th><th>跟踪指标</th></tr></thead>
+      <tbody>
+        <tr><td>需求为什么起来</td><td>AI 服务器、ASIC、交换机、1.6T 光模块和先进封装共同抬升 PCB 价值量。</td><td>云厂资本开支、GB300/Rubin 放量、ASIC 客户收入兑现。</td></tr>
+        <tr><td>供给为什么受限</td><td>高端 PCB 受压合、电镀、良率、设备、材料和客户认证限制。</td><td>有效产能比例、交期、毛利率、新产能爬坡。</td></tr>
+        <tr><td>上游为什么重要</td><td>CCL、铜箔、树脂、电子布、ABF、钻针和设备决定高端 PCB 的可生产性。</td><td>材料涨价、交期、客户认证、国产替代进度。</td></tr>
+        <tr><td>价格是否可持续</td><td>普通材料涨价偏周期修复，高端材料涨价更依赖真实供需缺口。</td><td>涨价函、进口单价、加工费、库存、下游接受度。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>五、上游环节深拆</h2>
+    <table>
+      <thead><tr><th>环节</th><th>在 PCB 里的作用</th><th>AI 高端 PCB 为什么更看重</th><th>公司线索</th></tr></thead>
+      <tbody>
+        <tr><td>CCL/覆铜板</td><td>基础板材，由铜箔、树脂和玻纤布压合。</td><td>从 FR-4 升到 M6/M7/M8/M9，高速低损耗和尺寸稳定更重要。</td><td>生益科技、建滔积层板、台光电、南亚新材</td></tr>
+        <tr><td>铜箔</td><td>导电层，承载信号、电源、接地。</td><td>高速信号要求低粗糙度、低损耗和厚度稳定。</td><td>德福科技、铜冠铜箔</td></tr>
+        <tr><td>树脂</td><td>绝缘和粘结，决定 Dk/Df、Tg、CTE。</td><td>高频高速材料需要 PPO、碳氢树脂、活性酯等高性能树脂。</td><td>圣泉集团、东材科技、同宇新材</td></tr>
+        <tr><td>电子布/玻纤</td><td>增强骨架，控制机械强度和尺寸稳定。</td><td>Low-Dk、Low-CTE、Q布帮助降低信号损耗和热变形。</td><td>宏和科技、中国巨石、中材科技/泰山玻纤</td></tr>
+        <tr><td>钻针/设备</td><td>形成层间导通孔和精细线路。</td><td>板厚、孔小、材料硬，提升微钻、涂层钻、曝光设备价值。</td><td>鼎泰高科、金洲精工、大族数控、芯碁微装</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>六、核心公司深度拆解</h2>
+    <div class="company-map"><strong>核心受益</strong><div><span class="tag">胜宏科技</span><span class="tag">沪电股份</span><span class="tag">生益科技</span></div></div>
+    <div class="company-map"><strong>弹性受益</strong><div><span class="tag">兴森科技</span><span class="tag">深南电路</span><span class="tag">德福科技</span><span class="tag">鼎泰高科</span><span class="tag">金洲精工</span><span class="tag">大族数控</span><span class="tag">芯碁微装</span><span class="tag">圣泉集团</span><span class="tag">东材科技</span><span class="tag">宏和科技</span><span class="tag">中国巨石</span></div></div>
+    <div class="company-map"><strong>映射受益</strong><div><span class="tag">鹏鼎控股</span><span class="tag">中材科技/泰山玻纤</span></div></div>
+    <div class="deep-company">
+      <article class="profile">
+        <h3>胜宏科技 <span class="tag">高端 PCB / AI UBB / HDI</span><span class="tag">核心受益</span></h3>
+        <div class="profile-grid">
+          <div><div class="mini-title">业务强势方向</div><ul><li>主业是印制电路板，收入结构高度集中于 PCB 制造。</li><li>AI 算力卡、AI Data Center UBB、交换机等高端场景是本轮增长核心。</li><li>资料显示 2025 年营收 192.92 亿元、归母净利润 43.12 亿元，毛利率 35.22%。</li></ul></div>
+          <div><div class="mini-title">技术/客户壁垒</div><ul><li>核心不是普通多层板，而是高多层 + 高阶 HDI 的复合能力。</li><li>公开研报称公司具备 100 层以上高多层板能力、6 阶 24 层 HDI 大规模量产、10 阶 30 层 HDI 与任意互联能力。</li><li>高端客户导入需要前期协同设计、认证、良率爬坡和快速交付，形成客户粘性。</li></ul></div>
+          <div><div class="mini-title">反证和跟踪</div><ul><li>泰国/越南等新产能爬坡若带来折旧、良率和成本压力，短期利润可能波动。</li><li>ASIC 客户、M-SAP、UBB 等高端产品收入占比和毛利率是核心跟踪项。</li><li>如果高端订单放缓或普通多层板竞争加剧，估值弹性会被压缩。</li></ul></div>
+        </div>
+      </article>
+
+      <article class="profile">
+        <h3>沪电股份 <span class="tag">高速通信 PCB / AI服务器 / 交换机</span><span class="tag">核心受益</span></h3>
+        <div class="profile-grid">
+          <div><div class="mini-title">业务强势方向</div><ul><li>优势在数据通讯应用 PCB，尤其高速交换机、路由器、AI 服务器和 HPC。</li><li>2025 年数据通讯应用 PCB 营收约 146.56 亿元，同比增长约 45.21%。</li><li>高速网络交换机及配套路由应用收入约 81.69 亿元，是高增长主轴。</li></ul></div>
+          <div><div class="mini-title">技术/产能壁垒</div><ul><li>卡位高速高频、高层数、高可靠通信板，壁垒来自材料适配、阻抗控制、信号完整性、量产良率。</li><li>高阶产能扩建指向 AI 服务器和高速通信板，产能扩张不只是面积扩张，而是关键制程和高端产品结构升级。</li><li>泰国基地用于海外客户交付，但客户认证和爬坡节奏仍需跟踪。</li></ul></div>
+          <div><div class="mini-title">反证和跟踪</div><ul><li>AI 服务器/HPC 收入占比、高速交换机收入、企业通讯板毛利率。</li><li>海外基地盈利拐点、客户认证数量、扩产项目投产时间。</li><li>若云厂资本开支放缓或交换机升级不及预期，成长斜率会下降。</li></ul></div>
+        </div>
+      </article>
+
+      <article class="profile">
+        <h3>生益科技 <span class="tag">CCL 龙头 / PCB 子公司</span><span class="tag">核心受益</span></h3>
+        <div class="profile-grid">
+          <div><div class="mini-title">业务强势方向</div><ul><li>基本盘是覆铜板和粘结片，同时通过生益电子参与 PCB 制造。</li><li>2025 年营收 284.31 亿元、归母净利润 33.34 亿元。</li><li>覆铜板和粘结片收入 177.74 亿元，PCB 收入 91.44 亿元。</li></ul></div>
+          <div><div class="mini-title">技术/材料壁垒</div><ul><li>在高频高速 CCL 中，壁垒来自树脂配方、玻纤/铜箔匹配、低损耗、耐热和稳定量产。</li><li>AI 服务器材料从 M6/M7 向 M8/M9 升级，材料厂的议价权来自认证、稳定供货和客户结构。</li><li>泰国产能和外销高毛利是全球化供应链的重要线索。</li></ul></div>
+          <div><div class="mini-title">反证和跟踪</div><ul><li>普通 CCL 涨价若回落，高速 CCL 占比不足会压制盈利弹性。</li><li>需拆分 CCL 与 PCB 子公司贡献，避免把两个业务弹性混同。</li><li>跟踪高速材料占比、交期、涨价和高端客户认证。</li></ul></div>
+        </div>
+      </article>
+
+      <article class="profile">
+        <h3>圣泉集团 / 东材科技 <span class="tag">高频高速树脂</span><span class="tag">弹性受益</span></h3>
+        <div class="profile-grid">
+          <div><div class="mini-title">业务强势方向</div><ul><li>圣泉集团：PPO、碳氢树脂等高频高速树脂量产，并与头部 PCB/CCL 厂联合开发。</li><li>东材科技：高速电子树脂覆盖双马来酰亚胺、活性酯、碳氢树脂、聚苯醚等方向。</li></ul></div>
+          <div><div class="mini-title">技术壁垒</div><ul><li>树脂不是简单化工品，决定 CCL 的 Dk/Df、Tg、CTE、耐热和加工窗口。</li><li>高端树脂需要与 CCL 厂、PCB 厂和终端客户共同验证，认证周期和配方稳定性形成壁垒。</li></ul></div>
+          <div><div class="mini-title">反证和跟踪</div><ul><li>高端树脂收入占比、客户名单、量产规模和毛利率。</li><li>若溴素等成本回落且高端树脂未形成缺口，行情可能退回成本周期。</li></ul></div>
+        </div>
+      </article>
+
+      <article class="profile">
+        <h3>宏和科技 / 中国巨石 <span class="tag">电子布/玻纤</span><span class="tag">弹性受益</span></h3>
+        <div class="profile-grid">
+          <div><div class="mini-title">业务强势方向</div><ul><li>宏和科技：高端功能性特种电子布，Low-Dk、Low-CTE、Q布是 AI PCB 材料升级方向。</li><li>中国巨石：电子布产能和销量基础大，特种布进展需要继续跟踪。</li></ul></div>
+          <div><div class="mini-title">技术壁垒</div><ul><li>玻纤布影响 CCL 的尺寸稳定、热膨胀、介电损耗和耐 CAF。</li><li>高端电子布的壁垒是纱线、织造、开纤、浸润和与树脂体系适配。</li></ul></div>
+          <div><div class="mini-title">反证和跟踪</div><ul><li>Low-Dk/Low-CTE/Q布收入占比、客户认证、扩产节奏。</li><li>如果普通电子布价格回落或高端布供给快速释放，弹性会下降。</li></ul></div>
+        </div>
+      </article>
+
+      <article class="profile">
+        <h3>鼎泰高科 / 金洲精工 / 大族数控 / 芯碁微装 <span class="tag">钻针与设备</span><span class="tag">弹性受益</span></h3>
+        <div class="profile-grid">
+          <div><div class="mini-title">业务强势方向</div><ul><li>鼎泰高科、金洲精工：微型钻针、涂层钻针、高长径比钻针、金刚石涂层钻。</li><li>大族数控、芯碁微装：钻孔、曝光等 PCB 专用设备。</li></ul></div>
+          <div><div class="mini-title">技术壁垒</div><ul><li>AI PCB 层数更高、孔径更小、材料更硬，钻孔难度和刀具损耗上升。</li><li>Q布/M9 等高端材料导入后，钻针寿命、孔壁质量和设备精度变成良率变量。</li></ul></div>
+          <div><div class="mini-title">反证和跟踪</div><ul><li>钻针 ASP、产品结构、高端客户导入、设备订单。</li><li>如果下游扩产放缓或良率改善抵消耗材用量，业绩弹性会弱化。</li></ul></div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>七、风险与反证</h2>
+    <table class="risk">
+      <thead><tr><th>当前结论</th><th>反证信号</th></tr></thead>
+      <tbody>
+        <tr><td>AI PCB 是中期产业主线</td><td>云厂资本开支下修、GB300/Rubin 放量延后、ASIC 需求低于预期。</td></tr>
+        <tr><td>高端有效产能稀缺</td><td>新产能爬坡快于需求，交期缩短，价格压力提前出现。</td></tr>
+        <tr><td>CCL 是上游关键瓶颈</td><td>普通 CCL 补库存结束，高端 CCL 涨价无法传导，材料交期恢复。</td></tr>
+        <tr><td>树脂和电子布成为新变量</td><td>高端树脂/高端布认证慢，或原材料价格回落后供应不再紧张。</td></tr>
+        <tr><td>设备耗材受益</td><td>下游扩产放缓，Q布/M9材料导入慢，高端钻针和设备订单不达预期。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+</main>
+</body>
+</html>

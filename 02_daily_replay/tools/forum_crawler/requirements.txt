@@ -1,0 +1,4 @@
+scrapling>=0.4.8
+playwright>=1.60.0
+beautifulsoup4>=4.14.3
+lxml>=6.1.1

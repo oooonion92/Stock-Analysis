@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <style>
+    html, body {
+      margin: 0;
+      width: 1200px;
+      height: 760px;
+      background: #f4f6f8;
+      font-family: "Microsoft YaHei", "Noto Sans SC", Arial, sans-serif;
+      overflow: hidden;
+    }
+    svg { display: block; width: 1200px; height: 760px; }
+    .title { font-size: 34px; font-weight: 850; fill: #10223b; }
+    .subtitle { font-size: 16px; fill: #52627a; }
+    .label { font-size: 26px; font-weight: 800; fill: #fff; }
+    .label-small { font-size: 18px; font-weight: 700; fill: #fff; opacity: .92; }
+    .callout { font-size: 15px; fill: #35445a; font-weight: 700; }
+  </style>
+</head>
+<body>
+<svg viewBox="0 0 1200 760" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AI高多层HDI PCB 3D结构示意图">
+  <defs>
+    <linearGradient id="topGrey" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#e6e8ea"/>
+      <stop offset=".55" stop-color="#c7ccd0"/>
+      <stop offset="1" stop-color="#aeb5bb"/>
+    </linearGradient>
+    <linearGradient id="frontGrey" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#c8ced3"/>
+      <stop offset="1" stop-color="#9ea6ad"/>
+    </linearGradient>
+    <linearGradient id="sideGrey" x1="0" x2="1">
+      <stop offset="0" stop-color="#aeb5bb"/>
+      <stop offset="1" stop-color="#858d95"/>
+    </linearGradient>
+    <linearGradient id="copper" x1="0" x2="1">
+      <stop offset="0" stop-color="#9e5f3b"/>
+      <stop offset=".23" stop-color="#f2b180"/>
+      <stop offset=".52" stop-color="#cc7650"/>
+      <stop offset=".78" stop-color="#f2c09b"/>
+      <stop offset="1" stop-color="#7b4128"/>
+    </linearGradient>
+    <linearGradient id="hole" x1="0" x2="1">
+      <stop offset="0" stop-color="#6f6f6f"/>
+      <stop offset=".5" stop-color="#d6d6d6"/>
+      <stop offset="1" stop-color="#585858"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="26" stdDeviation="20" flood-color="#2d3640" flood-opacity=".22"/>
+    </filter>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="4" dy="8" stdDeviation="5" flood-color="#6a3a20" flood-opacity=".28"/>
+    </filter>
+    <linearGradient id="labelBlue" x1="0" x2="1">
+      <stop offset="0" stop-color="#466f92"/>
+      <stop offset="1" stop-color="#2f587d"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="760" fill="#f7f8fa"/>
+  <text x="58" y="58" class="title">AI 高多层 / HDI PCB 3D 结构示意</text>
+  <text x="60" y="88" class="subtitle">更接近实物的立体表达：展示高多层板、普通通孔、盲孔、埋孔与表层铜线路；材料层细节另用图例补充</text>
+
+  <g transform="translate(30,44)" filter="url(#shadow)">
+    <polygon points="80,132 640,40 1092,136 508,248" fill="url(#topGrey)" stroke="#a2a9af" stroke-width="1.5"/>
+    <polygon points="80,132 508,248 508,548 80,414" fill="url(#frontGrey)" stroke="#919aa2" stroke-width="1.5"/>
+    <polygon points="508,248 1092,136 1092,430 508,548" fill="url(#sideGrey)" stroke="#818991" stroke-width="1.5"/>
+
+    <g opacity=".7">
+      <line x1="91" y1="182" x2="510" y2="292" stroke="#6e767e" stroke-width="1.5"/>
+      <line x1="91" y1="230" x2="510" y2="340" stroke="#6e767e" stroke-width="1.5"/>
+      <line x1="91" y1="278" x2="510" y2="388" stroke="#6e767e" stroke-width="1.5"/>
+      <line x1="91" y1="326" x2="510" y2="436" stroke="#6e767e" stroke-width="1.5"/>
+      <line x1="91" y1="374" x2="510" y2="484" stroke="#6e767e" stroke-width="1.5"/>
+      <line x1="510" y1="292" x2="1092" y2="178" stroke="#6e767e" stroke-width="1.5"/>
+      <line x1="510" y1="340" x2="1092" y2="226" stroke="#6e767e" stroke-width="1.5"/>
+      <line x1="510" y1="388" x2="1092" y2="274" stroke="#6e767e" stroke-width="1.5"/>
+      <line x1="510" y1="436" x2="1092" y2="322" stroke="#6e767e" stroke-width="1.5"/>
+      <line x1="510" y1="484" x2="1092" y2="370" stroke="#6e767e" stroke-width="1.5"/>
+    </g>
+
+    <g stroke="url(#copper)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity=".96">
+      <path d="M144 128 L356 92 L628 128 L833 88"/>
+      <path d="M282 156 L458 124 L580 154 L752 118 L956 86"/>
+      <path d="M500 206 L612 174 L742 202 L888 172"/>
+      <path d="M692 228 L740 216 L766 238 L832 224"/>
+    </g>
+
+    <g fill="url(#copper)" stroke="#7b4128" stroke-width="2" filter="url(#soft)">
+      <ellipse cx="144" cy="128" rx="20" ry="8"/>
+      <ellipse cx="458" cy="124" rx="18" ry="7"/>
+      <ellipse cx="612" cy="174" rx="24" ry="9"/>
+      <ellipse cx="740" cy="216" rx="18" ry="7"/>
+      <ellipse cx="956" cy="86" rx="17" ry="7"/>
+    </g>
+
+    <g filter="url(#soft)">
+      <g>
+        <rect x="612" y="174" width="34" height="306" rx="17" fill="url(#copper)" stroke="#7b4128" stroke-width="2"/>
+        <ellipse cx="629" cy="174" rx="17" ry="7" fill="#f4ba83" stroke="#7b4128" stroke-width="2"/>
+        <ellipse cx="629" cy="480" rx="17" ry="7" fill="url(#hole)" stroke="#7b4128" stroke-width="2"/>
+      </g>
+      <g>
+        <rect x="840" y="190" width="30" height="250" rx="15" fill="url(#copper)" stroke="#7b4128" stroke-width="2"/>
+        <ellipse cx="855" cy="190" rx="15" ry="6" fill="#f4ba83" stroke="#7b4128" stroke-width="2"/>
+        <ellipse cx="855" cy="440" rx="15" ry="6" fill="url(#hole)" stroke="#7b4128" stroke-width="2"/>
+      </g>
+      <g>
+        <rect x="144" y="128" width="24" height="112" rx="12" fill="url(#copper)" stroke="#7b4128" stroke-width="2"/>
+        <ellipse cx="156" cy="128" rx="12" ry="5" fill="#f4ba83" stroke="#7b4128" stroke-width="2"/>
+        <ellipse cx="156" cy="240" rx="12" ry="5" fill="url(#hole)" stroke="#7b4128" stroke-width="2"/>
+      </g>
+      <g>
+        <rect x="458" y="124" width="22" height="122" rx="11" fill="url(#copper)" stroke="#7b4128" stroke-width="2"/>
+        <ellipse cx="469" cy="124" rx="11" ry="5" fill="#f4ba83" stroke="#7b4128" stroke-width="2"/>
+        <ellipse cx="469" cy="246" rx="11" ry="5" fill="url(#hole)" stroke="#7b4128" stroke-width="2"/>
+      </g>
+      <g>
+        <rect x="344" y="322" width="20" height="94" rx="10" fill="url(#copper)" stroke="#7b4128" stroke-width="2"/>
+        <ellipse cx="354" cy="322" rx="10" ry="4" fill="#f4ba83" stroke="#7b4128" stroke-width="2"/>
+        <ellipse cx="354" cy="416" rx="10" ry="4" fill="url(#hole)" stroke="#7b4128" stroke-width="2"/>
+      </g>
+      <g>
+        <rect x="740" y="216" width="20" height="74" rx="10" fill="url(#copper)" stroke="#7b4128" stroke-width="2"/>
+        <ellipse cx="750" cy="216" rx="10" ry="4" fill="#f4ba83" stroke="#7b4128" stroke-width="2"/>
+        <ellipse cx="750" cy="290" rx="10" ry="4" fill="url(#hole)" stroke="#7b4128" stroke-width="2"/>
+      </g>
+      <g>
+        <rect x="956" y="86" width="18" height="64" rx="9" fill="url(#copper)" stroke="#7b4128" stroke-width="2"/>
+        <ellipse cx="965" cy="86" rx="9" ry="4" fill="#f4ba83" stroke="#7b4128" stroke-width="2"/>
+        <ellipse cx="965" cy="150" rx="9" ry="4" fill="url(#hole)" stroke="#7b4128" stroke-width="2"/>
+      </g>
+    </g>
+  </g>
+
+  <g>
+    <rect x="92" y="566" width="126" height="82" rx="0" fill="url(#labelBlue)"/>
+    <text x="155" y="600" text-anchor="middle" class="label">2阶盲孔</text>
+    <text x="155" y="632" text-anchor="middle" class="label-small">HDI 板</text>
+
+    <rect x="288" y="598" width="126" height="82" rx="0" fill="url(#labelBlue)"/>
+    <text x="351" y="632" text-anchor="middle" class="label">2阶埋孔</text>
+    <text x="351" y="664" text-anchor="middle" class="label-small">HDI 板</text>
+
+    <rect x="510" y="640" width="136" height="82" rx="0" fill="url(#labelBlue)"/>
+    <text x="578" y="674" text-anchor="middle" class="label">普通</text>
+    <text x="578" y="706" text-anchor="middle" class="label-small">通孔板</text>
+
+    <rect x="724" y="610" width="126" height="82" rx="0" fill="url(#labelBlue)"/>
+    <text x="787" y="644" text-anchor="middle" class="label">1阶</text>
+    <text x="787" y="676" text-anchor="middle" class="label-small">HDI 板</text>
+  </g>
+
+  <g>
+    <text x="905" y="548" class="callout">读图要点</text>
+    <text x="905" y="574" class="callout">1. 立体块表达层数、孔深和孔型差异</text>
+    <text x="905" y="600" class="callout">2. 铜柱是孔壁电镀铜，不等同于铜箔平面</text>
+    <text x="905" y="626" class="callout">3. 树脂/玻纤/CCL 细分需另配材料剖面图</text>
+  </g>
+</svg>
+</body>
+</html>

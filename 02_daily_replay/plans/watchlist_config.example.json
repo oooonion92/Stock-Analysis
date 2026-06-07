@@ -1,0 +1,32 @@
+{
+  "index": "sh000001",
+  "symbols": [
+    {
+      "symbol": "sz002463",
+      "name": "沪电股份",
+      "shares": null,
+      "cost": null,
+      "position_pct": null,
+      "hard_stop": null,
+      "plan_note": "示例：填写你的仓位、成本和风控线后，报告会自动显示。"
+    },
+    {
+      "symbol": "sh603078",
+      "name": "江化微",
+      "shares": null,
+      "cost": null,
+      "position_pct": null,
+      "hard_stop": null,
+      "plan_note": ""
+    },
+    {
+      "symbol": "sh600522",
+      "name": "中天科技",
+      "shares": null,
+      "cost": null,
+      "position_pct": null,
+      "hard_stop": null,
+      "plan_note": ""
+    }
+  ]
+}

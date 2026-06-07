@@ -1,0 +1,31 @@
+__pycache__/
+*.pyc
+*.log
+.env
+.env.*
+.pydeps/
+.venv/
+venv/
+/stock_work/
+/stock_work2/
+snapshots/
+
+# Local app/runtime state
+01_chanlun_sandbox/*.log
+
+# Daily replay crawler runtime state
+02_daily_replay/data/watch_targets.csv
+02_daily_replay/data/*.sqlite
+02_daily_replay/plans/watchlist_config.json
+02_daily_replay/tools/forum_crawler/browser_profile/
+02_daily_replay/source_notes/crawled_forum_posts/
+02_daily_replay/data/*.sqlite-journal
+02_daily_replay/data/*.sqlite-wal
+02_daily_replay/data/*.sqlite-shm
+
+# Generated stock-analysis test output
+03_stock_deep_analysis/china-stock-deep-analysis-local/scripts/stock_work/test*/
+03_stock_deep_analysis/china-stock-deep-analysis-local/scripts/stock_work/test_outputs*/
+
+# Industry research runtime logs
+04_industry_research/industries/**/assets/*.log

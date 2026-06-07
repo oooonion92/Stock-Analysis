@@ -1,0 +1,253 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>2026-06-04 缠论复盘看板</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --text: #17202a;
+      --muted: #667085;
+      --line: #d9e0ea;
+      --red: #d92d20;
+      --green: #16865a;
+      --blue: #245985;
+      --amber: #b7791f;
+      --shadow: 0 10px 28px rgba(31, 45, 61, .08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif;
+      line-height: 1.45;
+    }
+    .page { max-width: 1280px; margin: 0 auto; padding: 22px; }
+    .hero { margin-bottom: 16px; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+    .hero h1 { margin: 0 0 8px; font-size: 24px; }
+    .subtitle { color: var(--muted); margin: 0; }
+    .gate-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+    }
+    .gate-red { background: #fff1ef; border-color: #ffc9c3; }
+    .gate-yellow { background: #fff8e8; border-color: #efd08d; }
+    .gate-blue { background: #eef5ff; border-color: #bfd7fb; }
+    .gate-label { font-weight: 800; font-size: 18px; }
+    .gate-levels { color: var(--muted); font-size: 13px; }
+    .market-overview { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fbfdff; }
+    .market-overview b { display: block; margin-bottom: 5px; font-size: 14px; }
+    .market-overview p { margin: 0; color: #344054; font-size: 13px; }
+    .section-title { margin: 22px 0 10px; font-size: 18px; }
+    .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .stock-card { background: var(--panel); border: 1px solid var(--line); border-top: 5px solid var(--blue); border-radius: 8px; padding: 14px; box-shadow: var(--shadow); }
+    .action-wait { border-top-color: var(--amber); }
+    .action-offense { border-top-color: var(--green); }
+    .action-range { border-top-color: var(--blue); }
+    .action-defense { border-top-color: #8a94a6; }
+    .card-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+    .card-head h3 { margin: 0; font-size: 18px; }
+    .card-head p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .action-badge { white-space: nowrap; border-radius: 999px; padding: 4px 9px; background: #eef3f8; color: #1f4e79; font-size: 12px; font-weight: 800; }
+    .takeaway { margin: 12px 0; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid var(--line); font-weight: 700; }
+    .levels { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 10px 0; }
+    .level-pill { border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+    .level-pill span { display: block; color: var(--muted); font-size: 12px; }
+    .level-pill strong { font-size: 16px; }
+    .stock-sections { display: grid; gap: 8px; }
+    .stock-sections section { border-top: 1px solid var(--line); padding-top: 8px; }
+    .stock-sections b { display: block; font-size: 13px; margin-bottom: 3px; }
+    .stock-sections span, .reason { color: #344054; font-size: 13px; }
+    .reason { margin: 10px 0 0; }
+    .tree { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .top-tree { margin-top: 12px; }
+    .path { border-radius: 8px; padding: 12px; border: 1px solid var(--line); background: var(--panel); }
+    .path h3 { margin: 0 0 8px; font-size: 16px; }
+    .path ul { margin: 0; padding-left: 18px; color: #344054; }
+    .skip-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+    .empty { color: var(--muted); padding: 10px 0; }
+    footer { color: var(--muted); margin: 22px 0 4px; font-size: 12px; }
+    @media (max-width: 920px) {
+      .page { padding: 14px; }
+      .cards, .tree { grid-template-columns: 1fr; }
+      .levels { grid-template-columns: 1fr 1fr; }
+      .skip-row { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 520px) {
+      .levels { grid-template-columns: 1fr; }
+      .gate-strip { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <div class="panel">
+        <h1>2026-06-04 缠论复盘看板</h1>
+        <p class="subtitle">先看总闸，再看持仓动作。Markdown 和 JSON 仍保留作归档。</p>
+        <div class="gate-strip gate-blue">
+          <div>
+            <div class="gate-label">大盘总闸：偏蓝：全场防守</div>
+            <div class="gate-levels">上证 5m 中枢 ZD 4089.92 / ZG 4101.64，收盘 4057.78</div>
+          </div>
+          <div class="gate-levels">30m DIF斜率 -0.771</div>
+        </div>
+        <div class="market-overview">
+          <b>大盘总体分析</b>
+          <p>偏蓝：指数收在5m中枢下方，新增买点降级，持仓按各自利润垫和破位线处理。 今日上证收 4057.78，落在5m中枢下方；30m DIF -5.385，斜率走弱。5m看法：5m若守在 4056.61 上方，绿柱大概率不再恶化；只要不有效跌破 4037.72，DIF仍有机会守住最近底分型强度；先看能否收回 4089.92，否则仍是弱修复。 30m看法：30m若守在 4052.52 上方，绿柱大概率不再恶化；只要不有效跌破 3972.08，DIF仍有机会守住最近底分型强度；站上 4107.05 才转强，跌破 4055.83 转弱。</p>
+        </div>
+        <h2 class="section-title">明日行动路径</h2>
+        <section class="tree top-tree">
+          <div class="path gate-red">
+            <h3>红色路径：守住 4101.64</h3>
+            <ul>
+              <li>指数站回中枢上沿，系统风险降级。</li>
+              <li>只激活强结构个股。</li>
+              <li>不追VWAP正偏离过大的急拉。</li>
+            </ul>
+          </div>
+          <div class="path gate-yellow">
+            <h3>黄色路径：回落但守 4089.92</h3>
+            <ul>
+              <li>只做承接验证。</li>
+              <li>等待5m二买/三买，不开盘追价。</li>
+              <li>中枢内个股等待方向选择。</li>
+            </ul>
+          </div>
+          <div class="path gate-blue">
+            <h3>蓝色路径：跌破 4089.92</h3>
+            <ul>
+              <li>全部新增信号降级。</li>
+              <li>不新增趋势仓。</li>
+              <li>优先保护利润和现金。</li>
+            </ul>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <h2 class="section-title">趋势持仓复盘</h2>
+    <section class="cards">
+    <article class="stock-card action-offense">
+      <div class="card-head">
+        <div>
+          <h3>sz002463 沪电股份</h3>
+          <p>仓位 22.57% · 成本 86.804 · 浮盈 30937.43</p>
+        </div>
+        <span class="action-badge">强势持仓/不追加</span>
+      </div>
+      <div class="takeaway">sz002463 沪电股份：交易类型：趋势；执行结论：强势持仓/不追加。｜今日一句话：收在5m中枢上方，30m DIF走弱，VWAP 134.56，收盘偏离 +6.11%，利润垫厚。</div>
+      <div class="levels"><div class="level-pill"><span>防守</span><strong>129.69</strong></div><div class="level-pill"><span>中枢上沿</span><strong>131.99</strong></div><div class="level-pill"><span>VWAP</span><strong>134.56</strong></div><div class="level-pill"><span>收盘</span><strong>142.78</strong></div></div>
+      <div class="stock-sections">
+        <section>
+          <b>当日走势</b>
+          <span>收盘在5m中枢上方。 前一段几乎没有有效绿柱，倍率会被极小分母放大；只看结论：最近回调出现了真实绿柱，不能按底背驰处理。 30m DIF 已经回到零轴上方，但斜率继续走弱，说明大级别正在承压。 今日VWAP约 134.56，收盘相对VWAP +6.11%。收盘偏离较大，明日追高容易买在成本线上方。早盘有明显急拉偏离，明日仍要防开盘诱多。10点后未有效跌破VWAP，承接相对较好。 横截面归类：脉冲型，抗跌不稳定；下跌捕获约 2.56，相关度 0.53，大盘下跌时它跌得更快，不能当硬Alpha。</span>
+        </section>
+        <section>
+          <b>5m推演</b>
+          <span>5m若反弹并站上 146.30，绿柱才更容易缩短；DIF守住前低的要求很宽，关键转为看回踩结构位是否守住；回踩优先看 131.99，跌回 129.69 下方则修复失败。 前一段几乎没有有效绿柱，倍率会被极小分母放大；只看结论：最近回调出现了真实绿柱，不能按底背驰处理。</span>
+        </section>
+        <section>
+          <b>30m推演</b>
+          <span>30m若守在 140.71 上方，绿柱大概率不再恶化；DIF守住前低的要求很宽，关键转为看回踩结构位是否守住；回踩优先看 134.79，跌回 125.36 下方则修复失败。 30m DIF 已经回到零轴上方，但斜率继续走弱，说明大级别正在承压。</span>
+        </section>
+        <section>
+          <b>操作计划</b>
+          <span>买点条件：不追高；回踩 131.99 或VWAP不破，再看5m二买/三买延续。 卖点/减仓条件：跌破 129.69 后不能快速收回，或10点后持续压在VWAP下方。 失效条件：大盘跌破总闸下沿，同时个股5m跌破 129.69，活动仓先让路。 大盘偏蓝限制新增仓，但该票放量冲到日高并站在5m中枢上方，持仓享受强势，不追高加仓。</span>
+        </section>
+      </div>
+    </article>
+    
+
+    <article class="stock-card action-range">
+      <div class="card-head">
+        <div>
+          <h3>sh603078 江化微</h3>
+          <p>仓位 17.78% · 成本 26.739 · 浮盈 18762.01</p>
+        </div>
+        <span class="action-badge">持有观察</span>
+      </div>
+      <div class="takeaway">sh603078 江化微：交易类型：趋势；执行结论：持有观察。｜今日一句话：收在5m中枢内部，30m DIF向上，VWAP 37.60，收盘偏离 +0.48%，利润垫厚。</div>
+      <div class="levels"><div class="level-pill"><span>防守</span><strong>37.62</strong></div><div class="level-pill"><span>中枢上沿</span><strong>37.98</strong></div><div class="level-pill"><span>VWAP</span><strong>37.60</strong></div><div class="level-pill"><span>收盘</span><strong>37.78</strong></div></div>
+      <div class="stock-sections">
+        <section>
+          <b>当日走势</b>
+          <span>收盘在5m中枢内部。 前一段几乎没有有效绿柱，倍率会被极小分母放大；只看结论：最近回调出现了真实绿柱，不能按底背驰处理。 30m DIF 已经回到零轴上方，但斜率向上修复，说明大级别正在修复。 今日VWAP约 37.60，收盘相对VWAP +0.48%。价格和成本线贴近，适合等方向选择。早盘有明显急拉偏离，明日仍要防开盘诱多。10点后曾跌破VWAP，承接质量一般。 横截面归类：脉冲型，抗跌不稳定；下跌捕获约 1.69，相关度 0.34，大盘下跌时它跌得更快，不能当硬Alpha。</span>
+        </section>
+        <section>
+          <b>5m推演</b>
+          <span>5m若反弹并站上 37.87，绿柱才更容易缩短；DIF守住前低的要求很宽，关键转为看回踩结构位是否守住；站上 37.98 才转强，跌破 37.62 转弱。 前一段几乎没有有效绿柱，倍率会被极小分母放大；只看结论：最近回调出现了真实绿柱，不能按底背驰处理。</span>
+        </section>
+        <section>
+          <b>30m推演</b>
+          <span>30m若反弹并站上 38.07，绿柱才更容易缩短；DIF守住前低的要求很宽，关键转为看回踩结构位是否守住；回踩优先看 35.57，跌回 33.81 下方则修复失败。 30m DIF 已经回到零轴上方，但斜率向上修复，说明大级别正在修复。</span>
+        </section>
+        <section>
+          <b>操作计划</b>
+          <span>买点条件：先看方向选择；站上 37.98 才转强，回踩不破VWAP再考虑活动仓。 卖点/减仓条件：跌破 37.62 后不能快速收回，或10点后持续压在VWAP下方。 失效条件：大盘跌破总闸下沿，同时个股5m跌破 37.62，活动仓先让路。 大盘偏蓝只限制新增买入；该票30m仍修复且有利润垫，按持仓观察处理。</span>
+        </section>
+      </div>
+    </article>
+    
+
+    <article class="stock-card action-defense">
+      <div class="card-head">
+        <div>
+          <h3>sh600522 中天科技</h3>
+          <p>仓位 17.95% · 成本 41.338 · 浮盈 2639.16</p>
+        </div>
+        <span class="action-badge">只观察不加仓</span>
+      </div>
+      <div class="takeaway">sh600522 中天科技：交易类型：趋势；执行结论：只观察不加仓。｜今日一句话：收在5m中枢内部，30m DIF走弱，VWAP 45.89，收盘偏离 +0.36%，利润垫薄。</div>
+      <div class="levels"><div class="level-pill"><span>防守</span><strong>44.79</strong></div><div class="level-pill"><span>中枢上沿</span><strong>46.07</strong></div><div class="level-pill"><span>VWAP</span><strong>45.89</strong></div><div class="level-pill"><span>收盘</span><strong>46.06</strong></div></div>
+      <div class="stock-sections">
+        <section>
+          <b>当日走势</b>
+          <span>收盘在5m中枢内部。 最近回调几乎没有有效绿柱，说明抛压很轻；但若没有跌破前低，只能看作缩量回踩观察，不能直接判底背驰。 30m DIF 已经回到零轴上方，但斜率继续走弱，说明大级别正在承压。 今日VWAP约 45.89，收盘相对VWAP +0.36%。价格和成本线贴近，适合等方向选择。10点后曾跌破VWAP，承接质量一般。 横截面归类：脉冲型，抗跌不稳定；下跌捕获约 2.13，相关度 0.37，大盘下跌时它跌得更快，不能当硬Alpha。</span>
+        </section>
+        <section>
+          <b>5m推演</b>
+          <span>5m若反弹并站上 46.15，绿柱才更容易缩短；若上攻到 46.29 附近，DIF修复会更强；站上 46.07 才转强，跌破 44.79 转弱。 最近回调几乎没有有效绿柱，说明抛压很轻；但若没有跌破前低，只能看作缩量回踩观察，不能直接判底背驰。</span>
+        </section>
+        <section>
+          <b>30m推演</b>
+          <span>30m若反弹并站上 46.40，绿柱才更容易缩短；DIF守住前低的要求很宽，关键转为看回踩结构位是否守住；回踩优先看 45.43，跌回 42.54 下方则修复失败。 30m DIF 已经回到零轴上方，但斜率继续走弱，说明大级别正在承压。</span>
+        </section>
+        <section>
+          <b>操作计划</b>
+          <span>买点条件：先看方向选择；站上 46.07 才转强，回踩不破VWAP再考虑活动仓。 卖点/减仓条件：跌破 44.79 后不能快速收回，或10点后持续压在VWAP下方。 失效条件：大盘跌破总闸下沿，同时个股5m跌破 44.79，活动仓先让路。 大盘偏蓝，新增买点降级为观察，等指数总闸修复后再谈加仓。</span>
+        </section>
+      </div>
+    </article>
+    </section>
+
+    <h2 class="section-title">只记录持仓</h2>
+    <section class="panel">
+        <div class="skip-row">
+          <strong>sz002579 中京电子</strong>
+          <span>超短打野</span>
+          <span>仓位 2.56%</span>
+          <span>浮盈 795.0</span>
+        </div>
+        </section>
+
+    <footer>生成自 tools/chanlun_replay_plan.py；数据源：本地 D:\OneDrive\Stock\details。</footer>
+  </main>
+</body>
+</html>
