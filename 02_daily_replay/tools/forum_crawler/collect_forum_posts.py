@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
 from crawl_watchlist import crawl_target
 from export_posts import OUTPUT_ROOT, export_all_posts
-from forum_db import ROOT, connect, list_enabled_targets
+from forum_paths import CLOUD_REPORTS_ROOT, CLOUD_ROOT, CLOUD_WATCH_TARGETS
+from forum_db import connect, list_enabled_targets
+from import_watch_targets import import_csv
 
 
-REPORT_DIR = ROOT / "02_daily_replay" / "source_notes" / "crawled_forum_posts" / "_reports"
+REPORT_DIR = CLOUD_REPORTS_ROOT
 
 
 def write_report(summary: list[dict], exported_paths: list[Path]) -> Path:
@@ -40,7 +42,7 @@ def write_report(summary: list[dict], exported_paths: list[Path]) -> Path:
 
 
 def write_export_index(exported_paths: list[Path]) -> Path:
-    index_path = OUTPUT_ROOT / "_index.md"
+    index_path = CLOUD_ROOT / "_index.md"
     grouped: dict[str, list[Path]] = {}
     for path in exported_paths:
         try:
@@ -65,6 +67,93 @@ def write_export_index(exported_paths: list[Path]) -> Path:
     return index_path
 
 
+def parse_post_time(value: str) -> datetime | None:
+    value = value or ""
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(value, fmt).replace(tzinfo=None)
+        except ValueError:
+            continue
+    return None
+
+
+def fetch_posts_for_summary(conn, days: int | None = None, style: str | None = None, limit: int | None = None) -> list:
+    rows = list(
+        conn.execute(
+            """
+            SELECT
+                posts.*,
+                sites.name AS site_name,
+                sites.site_type,
+                watch_targets.display_name AS author_name,
+                watch_targets.external_user_id,
+                watch_targets.style
+            FROM posts
+            JOIN sites ON sites.id = posts.site_id
+            JOIN watch_targets ON watch_targets.id = posts.target_id
+            WHERE watch_targets.enabled = 1
+            ORDER BY COALESCE(NULLIF(posts.published_at, ''), posts.crawled_at) DESC, posts.id DESC
+            """
+        )
+    )
+    if style:
+        rows = [row for row in rows if row["style"] == style]
+    if days is not None:
+        cutoff = datetime.now() - timedelta(days=days)
+        filtered = []
+        for row in rows:
+            parsed = parse_post_time(row["published_at"])
+            if parsed and parsed >= cutoff:
+                filtered.append(row)
+        rows = filtered
+    if limit:
+        rows = rows[:limit]
+    return rows
+
+
+def render_summary(title: str, rows) -> str:
+    lines = [
+        f"# {title}",
+        "",
+        f"- 更新时间：{datetime.now().isoformat(timespec='seconds')}",
+        f"- records: {len(rows)}",
+        "",
+    ]
+    for index, row in enumerate(rows, 1):
+        content = (row["content"] or "").strip()
+        lines.extend(
+            [
+                f"## {index}. {row['site_name']} / {row['author_name']} / {row['style']}",
+                "",
+                f"- 时间：{row['published_at'] or row['crawled_at']}",
+                f"- 标题：{row['title'] or '(无标题)'}",
+                f"- 链接：{row['url']}",
+                "",
+                content,
+                "",
+            ]
+        )
+    return "\n".join(lines).strip() + "\n"
+
+
+def write_summary_files() -> list[Path]:
+    CLOUD_ROOT.mkdir(parents=True, exist_ok=True)
+    paths: list[Path] = []
+    with connect() as conn:
+        specs = [
+            ("今日汇总.md", "今日高手发言汇总", 1, None, 200),
+            ("最近7天汇总.md", "最近7天高手发言汇总", 7, None, 500),
+            ("趋势高手汇总.md", "趋势高手发言汇总", 14, "趋势", 500),
+            ("短线高手汇总.md", "短线高手发言汇总", 14, "短线", 500),
+        ]
+        for filename, title, days, style, limit in specs:
+            path = CLOUD_ROOT / filename
+            rows = fetch_posts_for_summary(conn, days=days, style=style, limit=limit)
+            path.write_text(render_summary(title, rows), encoding="utf-8-sig")
+            paths.append(path)
+    return paths
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="一键收集跟踪库中的高手发言，并导出可读文件。")
     parser.add_argument("--site", help="只收集指定网站，例如 NGA。")
@@ -77,7 +166,12 @@ def main() -> int:
     parser.add_argument("--limit", type=int, help="导出每个高手最近 N 条；不填则导出全部。")
     parser.add_argument("--export-format", default="both", choices=["md", "jsonl", "both"])
     parser.add_argument("--skip-crawl", action="store_true", help="只从数据库导出，不访问网站。")
+    parser.add_argument("--skip-watchlist-import", action="store_true", help="不从云端 watch_targets.csv 同步跟踪清单。")
     args = parser.parse_args()
+
+    if not args.skip_watchlist_import and CLOUD_WATCH_TARGETS.exists():
+        print(f"同步云端跟踪清单：{CLOUD_WATCH_TARGETS}")
+        import_csv(CLOUD_WATCH_TARGETS)
 
     crawl_args = SimpleNamespace(
         pages=args.pages,
@@ -145,9 +239,11 @@ def main() -> int:
     )
     report_path = write_report(summary, exported_paths)
     index_path = write_export_index(exported_paths)
+    summary_paths = write_summary_files()
 
     print(f"收集完成：{len(summary)} 个目标")
     print(f"导出文件：{len(exported_paths)} 个")
+    print(f"汇总文件：{len(summary_paths)} 个")
     print(f"报告：{report_path}")
     print(f"索引：{index_path}")
     return 0

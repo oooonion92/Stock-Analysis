@@ -11,6 +11,7 @@ PROFILE_DIR = Path(__file__).resolve().parent / "browser_profile"
 SITE_URLS = {
     "nga": "https://bbs.nga.cn/thread.php?searchpost=1&authorid=150058",
     "xueqiu": "https://xueqiu.com/",
+    "hupu": "https://my.hupu.com/89010186366175?tabKey=2",
 }
 
 

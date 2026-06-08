@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import re
 from pathlib import Path
 
 from forum_db import connect, get_site, upsert_target
@@ -26,6 +27,14 @@ def as_int(value: str, default: int) -> int:
     return int(text)
 
 
+def normalize_user_id(site: str, user_id: str, profile_url: str) -> str:
+    if site == "虎扑" and profile_url:
+        match = re.search(r"my\.hupu\.com/(\d+)", profile_url)
+        if match:
+            return match.group(1)
+    return user_id
+
+
 def import_csv(path: Path, dry_run: bool = False) -> tuple[int, int]:
     with path.open("r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
@@ -43,7 +52,8 @@ def import_csv(path: Path, dry_run: bool = False) -> tuple[int, int]:
         for index, row in enumerate(rows, 2):
             site = (row.get("site") or "").strip()
             name = (row.get("name") or "").strip()
-            user_id = (row.get("user_id") or "").strip()
+            profile_url = (row.get("profile_url") or "").strip()
+            user_id = normalize_user_id(site, (row.get("user_id") or "").strip(), profile_url)
             if not site or not name or not user_id:
                 print(f"[SKIP] 第 {index} 行缺少 site/name/user_id")
                 skipped += 1
@@ -70,7 +80,6 @@ def import_csv(path: Path, dry_run: bool = False) -> tuple[int, int]:
 
             pages = as_int(row.get("pages", ""), 3)
             enabled = as_bool(row.get("enabled", ""), True)
-            profile_url = (row.get("profile_url") or "").strip()
             notes = (row.get("notes") or "").strip()
 
             if dry_run:

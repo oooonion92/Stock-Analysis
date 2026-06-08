@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 
 from crawl_nga_author_replies import crawl as crawl_nga_replies
+from crawl_hupu_user_replies import crawl as crawl_hupu_replies
 from crawl_xueqiu_user_posts import crawl as crawl_xueqiu_posts
 from forum_db import (
     connect,
@@ -34,6 +35,14 @@ def crawl_target(conn, target, args) -> tuple[int, int]:
         elif site_type == "xueqiu" and target_type in ("feed", "posts", "both", "replies"):
             records = crawl_xueqiu_posts(
                 user_id_or_url=str(target["external_user_id"] or target["profile_url"]),
+                author_name=str(target["display_name"]),
+                pages=pages,
+                delay=args.delay,
+                headless=not args.headed,
+            )
+        elif site_type == "hupu" and target_type in ("replies", "both"):
+            records = crawl_hupu_replies(
+                user_id_or_url=str(target["profile_url"] or target["external_user_id"]),
                 author_name=str(target["display_name"]),
                 pages=pages,
                 delay=args.delay,

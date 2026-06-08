@@ -5,9 +5,10 @@ import csv
 from pathlib import Path
 
 from forum_db import DATA_DIR, connect
+from forum_paths import CLOUD_WATCH_TARGETS
 
 
-DEFAULT_OUTPUT = DATA_DIR / "watch_targets.csv"
+DEFAULT_OUTPUT = CLOUD_WATCH_TARGETS
 
 
 def export_watch_targets(path: Path) -> int:

@@ -479,6 +479,9 @@ def load_html_with_retry(
         except Exception:
             body_text = text_preview(raw)
 
+        if is_login_required(raw) or "你必须登录" in body_text:
+            raise SystemExit(f"第 {page_num} 页似乎未登录或被拦截，请重新运行 login_nga.py。")
+
         if "ERROR:2048" in body_text or "服务器忙,请稍后重试" in body_text:
             if attempt <= retries:
                 print(f"[WARN] 第 {page_num} 页服务器忙，{retry_delay:g} 秒后重试 {attempt}/{retries}")
@@ -486,9 +489,6 @@ def load_html_with_retry(
                 continue
             print(f"[WARN] 第 {page_num} 页多次服务器忙，跳过")
             return None
-
-        if is_login_required(raw) or "你必须登录" in body_text:
-            raise SystemExit(f"第 {page_num} 页似乎未登录或被拦截，请重新运行 login_nga.py。")
 
         return page_obj.content()
 

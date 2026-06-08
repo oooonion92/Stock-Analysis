@@ -7,9 +7,10 @@ from datetime import datetime
 from pathlib import Path
 
 from forum_db import ROOT, connect, get_site, list_targets, posts_for_target
+from forum_paths import CLOUD_AUTHORS_ROOT, CLOUD_RAW_ROOT
 
 
-OUTPUT_ROOT = ROOT / "02_daily_replay" / "source_notes" / "crawled_forum_posts"
+OUTPUT_ROOT = CLOUD_AUTHORS_ROOT
 
 
 def slug(value: str) -> str:

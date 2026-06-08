@@ -233,3 +233,55 @@ target_type：feed
 ```
 
 抓取原则：只读取你登录后有权限访问的首页关注流接口，并保留原文链接、发布时间和抓取时间；未登录首页的热点/推荐卡片不会作为关注流入库。
+
+## 8. 虎扑个人回帖
+
+虎扑已经登记为独立站点，当前试点目标：
+
+```text
+站点：虎扑
+目标：希夏邦驴
+user_id：89010186366175
+target_type：replies
+分类：短线
+profile_url：https://my.hupu.com/89010186366175?tabKey=2
+```
+
+虎扑个人中心需要登录。第一次使用前，先用专用浏览器资料夹登录虎扑，并确认目标个人页能看到回帖列表。
+
+只收虎扑：
+
+```powershell
+& $py .\02_daily_replay\tools\forum_crawler\collect_forum_posts.py --site 虎扑 --pages 2 --export-format both
+```
+
+输出位置：
+
+```text
+02_daily_replay/source_notes/crawled_forum_posts/hupu/短线/希夏邦驴_89010186366175_posts.md
+02_daily_replay/source_notes/crawled_forum_posts/hupu/短线/希夏邦驴_89010186366175_posts.jsonl
+```
+
+说明：虎扑个人页的原帖链接由前端处理，当前版本优先保存个人页来源链接、回帖正文、引用内容、主贴标题、板块和发布时间。
+
+## 9. 云端阅读入口
+
+跟踪清单和可读导出默认放在 OneDrive：
+
+```text
+D:\OneDrive\Stock\Replies collect\
+```
+
+主要入口：
+
+```text
+D:\OneDrive\Stock\Replies collect\watch_targets.csv
+D:\OneDrive\Stock\Replies collect\今日汇总.md
+D:\OneDrive\Stock\Replies collect\最近7天汇总.md
+D:\OneDrive\Stock\Replies collect\趋势高手汇总.md
+D:\OneDrive\Stock\Replies collect\短线高手汇总.md
+D:\OneDrive\Stock\Replies collect\authors\
+D:\OneDrive\Stock\Replies collect\reports\
+```
+
+日常维护只改云端 `watch_targets.csv`。执行一键收集时，脚本会先把云端清单同步进本地 SQLite，再抓取和导出。SQLite 仍保留在项目目录里，避免 OneDrive 同步锁库。
