@@ -18,23 +18,50 @@ def slug(value: str) -> str:
     return cleaned or "unknown"
 
 
+def clean_title(value: str | None) -> str:
+    title = (value or "").strip()
+    if not title or title in {"(无标题)", "无标题"}:
+        return ""
+    return title
+
+
+def format_time(value: str | None) -> str:
+    value = (value or "").strip()
+    if not value:
+        return "未知时间"
+    return value.replace("T", " ").replace("+08:00", "")
+
+
+def metadata_line(row) -> str:
+    parts = [format_time(row["published_at"])]
+    title = clean_title(row["title"])
+    if title:
+        parts.append(title)
+    if row["url"]:
+        parts.append(f"[查看原帖]({row['url']})")
+    return " ｜ ".join(parts)
+
+
 def render_markdown(rows, site_name: str, target_name: str, user_id: str) -> str:
     lines = [
-        f"# {site_name} 作者发言：{target_name}",
+        f"# {site_name} · {target_name}",
         "",
-        f"- user_id: `{user_id}`",
-        f"- records: {len(rows)}",
+        f"> user_id: `{user_id}` ｜ records: {len(rows)}",
         "",
     ]
     for index, row in enumerate(rows, 1):
+        content = (row["content"] or "").strip()
+        if not content:
+            continue
         lines.extend(
             [
-                f"## {index}. {row['title'] or '(无标题)'}",
+                f"## {index}. {format_time(row['published_at'])}",
                 "",
-                f"- 时间：{row['published_at'] or '未知'}",
-                f"- 链接：{row['url']}",
+                f"> {metadata_line(row)}",
                 "",
-                row["content"].strip(),
+                content,
+                "",
+                "---",
                 "",
             ]
         )

@@ -15,6 +15,50 @@ from import_watch_targets import import_csv
 REPORT_DIR = CLOUD_REPORTS_ROOT
 
 
+def clean_title(value: str | None) -> str:
+    title = (value or "").strip()
+    if not title or title in {"(无标题)", "无标题"}:
+        return ""
+    return title
+
+
+def format_time(value: str | None) -> str:
+    value = (value or "").strip()
+    if not value:
+        return "未知时间"
+    return value.replace("T", " ").replace("+08:00", "")
+
+
+def first_non_empty_line(value: str, max_chars: int = 90) -> str:
+    for line in (value or "").splitlines():
+        cleaned = line.strip()
+        if (
+            not cleaned
+            or cleaned.startswith("Reply to ")
+            or cleaned in {"回复", "//"}
+            or cleaned.startswith("@")
+        ):
+            continue
+        if len(cleaned) > max_chars:
+            return cleaned[:max_chars].rstrip() + "..."
+        return cleaned
+    return ""
+
+
+def metadata_line(row) -> str:
+    parts = [
+        format_time(row["published_at"] or row["crawled_at"]),
+        row["site_name"],
+        row["author_name"],
+    ]
+    title = clean_title(row["title"])
+    if title:
+        parts.append(title)
+    if row["url"]:
+        parts.append(f"[查看原帖]({row['url']})")
+    return " ｜ ".join(parts)
+
+
 def write_report(summary: list[dict], exported_paths: list[Path]) -> Path:
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -45,6 +89,8 @@ def write_export_index(exported_paths: list[Path]) -> Path:
     index_path = CLOUD_ROOT / "_index.md"
     grouped: dict[str, list[Path]] = {}
     for path in exported_paths:
+        if path.suffix.lower() != ".md":
+            continue
         try:
             style = path.relative_to(OUTPUT_ROOT).parts[1]
         except Exception:
@@ -60,7 +106,11 @@ def write_export_index(exported_paths: list[Path]) -> Path:
     for style in sorted(grouped):
         lines.extend([f"## {style}", ""])
         for path in sorted(grouped[style], key=lambda item: item.name):
-            lines.append(f"- [{path.stem}]({path.as_posix()})")
+            try:
+                link = path.relative_to(CLOUD_ROOT).as_posix()
+            except ValueError:
+                link = path.as_posix()
+            lines.append(f"- [{path.stem}]({link})")
         lines.append("")
 
     index_path.write_text("\n".join(lines).strip() + "\n", encoding="utf-8-sig")
@@ -115,24 +165,45 @@ def render_summary(title: str, rows) -> str:
     lines = [
         f"# {title}",
         "",
-        f"- 更新时间：{datetime.now().isoformat(timespec='seconds')}",
-        f"- records: {len(rows)}",
+        f"> 更新时间：{datetime.now().isoformat(timespec='seconds')} ｜ records: {len(rows)}",
         "",
     ]
-    for index, row in enumerate(rows, 1):
-        content = (row["content"] or "").strip()
-        lines.extend(
-            [
-                f"## {index}. {row['site_name']} / {row['author_name']} / {row['style']}",
-                "",
-                f"- 时间：{row['published_at'] or row['crawled_at']}",
-                f"- 标题：{row['title'] or '(无标题)'}",
-                f"- 链接：{row['url']}",
-                "",
-                content,
-                "",
-            ]
-        )
+
+    grouped: dict[str, dict[str, list]] = {}
+    for row in rows:
+        style = row["style"] or "未分类"
+        source = f"{row['site_name']} / {row['author_name']}"
+        grouped.setdefault(style, {}).setdefault(source, []).append(row)
+
+    index = 1
+    for style in sorted(grouped):
+        lines.extend([f"## {style}", ""])
+        for source in sorted(grouped[style]):
+            lines.extend([f"### {source}", ""])
+            for row in grouped[style][source]:
+                content = (row["content"] or "").strip()
+                if not content:
+                    continue
+                preview = first_non_empty_line(content)
+                lines.extend(
+                    [
+                        f"#### {index}. {format_time(row['published_at'] or row['crawled_at'])}",
+                        "",
+                        f"> {metadata_line(row)}",
+                    ]
+                )
+                if preview:
+                    lines.extend(["", f"**速览：** {preview}"])
+                lines.extend(
+                    [
+                        "",
+                        content,
+                        "",
+                        "---",
+                        "",
+                    ]
+                )
+                index += 1
     return "\n".join(lines).strip() + "\n"
 
 

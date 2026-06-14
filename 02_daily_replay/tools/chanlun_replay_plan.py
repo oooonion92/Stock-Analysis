@@ -4,6 +4,7 @@ import argparse
 import html
 import json
 import math
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,6 +29,7 @@ from chanlun_v10_20_core import (
 
 
 DATA_DIR = Path(r"D:\OneDrive\Stock\details")
+REPLIES_DIR = Path(r"D:\OneDrive\Stock\Replies collect")
 DEFAULT_INDEX = "sh000001"
 DEFAULT_SYMBOLS = ["sz002463", "sh603078", "sh600522"]
 DEFAULT_OUT_DIR = REPLAY_ROOT / "plans"
@@ -64,6 +66,30 @@ THEME_GROUPS = [
         "market_theme": "军工 / 商业航天 / 低空装备",
         "confidence": "中",
         "reading": "适合做分支强弱比较，只有放量扩散并出现核心承接时才提高优先级。",
+    },
+    {
+        "official_industries": ["锂"],
+        "market_theme": "锂矿 / 锂盐 / 电池材料",
+        "confidence": "中高",
+        "reading": "资源品事件驱动和价格预期修复并存，强势日不追一致，优先等分歧后的承接。",
+    },
+    {
+        "official_industries": ["钨钼", "其他金属", "铅锌", "铜", "钛"],
+        "market_theme": "小金属 / 有色资源",
+        "confidence": "中",
+        "reading": "弱市里的资源抱团方向，先看持续性和成交承接，不把首日强度直接当主升。",
+    },
+    {
+        "official_industries": ["磷肥及磷化工", "氟化工"],
+        "market_theme": "磷化工 / 氟化工 / 化工材料",
+        "confidence": "中",
+        "reading": "材料分支偏事件和价格预期驱动，重点观察前排是否继续扩散。",
+    },
+    {
+        "official_industries": ["玻纤制造"],
+        "market_theme": "玻纤 / 复合材料",
+        "confidence": "中",
+        "reading": "材料侧轮动方向，只有放量扩散并出现容量核心时才提高优先级。",
     },
 ]
 
@@ -246,6 +272,20 @@ def leader_names(subset: pd.DataFrame) -> list[str]:
     return names[:10]
 
 
+def industry_leader_names(valid: pd.DataFrame, industry: str) -> list[str]:
+    subset = valid[valid["industry"] == industry].copy()
+    if subset.empty:
+        return []
+    return leader_names(subset)
+
+
+def industry_records(frame: pd.DataFrame, valid: pd.DataFrame) -> list[dict[str, Any]]:
+    rows = plain_records(frame)
+    for row in rows:
+        row["top_names"] = industry_leader_names(valid, str(row.get("industry") or ""))
+    return rows
+
+
 def build_market_ecology(report_date: str, focus_symbols: list[str]) -> dict[str, Any]:
     df, path, error = read_full_market_frame(report_date)
     if df is None:
@@ -292,6 +332,8 @@ def build_market_ecology(report_date: str, focus_symbols: list[str]) -> dict[str
     industries = industries[industries["n"] >= 5].copy()
     top_avg = industries.sort_values(["avg_pct", "limit_up", "amount_100m"], ascending=False).head(10)
     top_amount = industries.sort_values("amount_100m", ascending=False).head(10)
+    top_avg_records = industry_records(top_avg, valid)
+    top_amount_records = industry_records(top_amount, valid)
 
     theme_rows = []
     valid["_theme_names"] = valid.apply(
@@ -352,15 +394,19 @@ def build_market_ecology(report_date: str, focus_symbols: list[str]) -> dict[str
         "available": True,
         "source_file": str(path),
         "daily": daily,
-        "top_industries_by_avg": plain_records(top_avg),
-        "top_industries_by_amount": plain_records(top_amount),
+        "top_industries_by_avg": top_avg_records,
+        "top_industries_by_amount": top_amount_records,
         "theme_mappings": theme_rows,
         "focus_stocks": stock_rows,
-        "summary": market_ecology_summary(daily, theme_rows),
+        "summary": market_ecology_summary(daily, theme_rows, top_avg_records),
     }
 
 
-def market_ecology_summary(daily: dict[str, Any], theme_rows: list[dict[str, Any]]) -> dict[str, str]:
+def market_ecology_summary(
+    daily: dict[str, Any],
+    theme_rows: list[dict[str, Any]],
+    top_industries: list[dict[str, Any]] | None = None,
+) -> dict[str, str]:
     up_ratio = safe_float(daily.get("up_ratio"))
     median = safe_float(daily.get("median_pct"))
     main_net = safe_float(daily.get("main_net_100m"))
@@ -374,8 +420,17 @@ def market_ecology_summary(daily: dict[str, Any], theme_rows: list[dict[str, Any
         mood += "，但主力净额明显流出"
     elif main_net is not None and main_net > 100:
         mood += "，且主力净额回流"
-    top_themes = [row["market_theme"] for row in theme_rows[:3]]
-    mainline = " / ".join(top_themes) if top_themes else "未识别出强题材层"
+    strong = [
+        str(row.get("industry"))
+        for row in (top_industries or [])
+        if (safe_float(row.get("avg_pct")) or -99) > 0
+        and ((safe_float(row.get("gt5")) or 0) > 0 or (safe_float(row.get("limit_up")) or 0) > 0)
+    ][:6]
+    if strong:
+        mainline = " / ".join(strong)
+    else:
+        top_themes = [row["market_theme"] for row in theme_rows[:3] if (safe_float(row.get("avg_pct")) or -99) > 0]
+        mainline = " / ".join(top_themes) if top_themes else "未识别出强题材层"
     risk = "新增买入只看主线核心回踩承接；高成交题材若主力净额转弱，按分歧兑现处理。"
     return {"short_term_mood": mood, "mainline": mainline, "risk_window": risk}
 
@@ -1126,7 +1181,7 @@ def theme_summary_line(ecology: dict[str, Any]) -> str:
     return (
         f"{summary.get('short_term_mood') or '市场分化'}；"
         f"全A上涨占比 {pct(up_ratio_pct, 1)}，中位涨幅 {pct(safe_float(daily.get('median_pct')))}；"
-        f"题材主线层：{summary.get('mainline') or '未识别'}。"
+        f"今日强势方向：{summary.get('mainline') or '未识别'}。"
     )
 
 
@@ -1235,6 +1290,44 @@ def render_market_ecology(lines: list[str], ecology: dict[str, Any], market_cont
     lines.append("")
 
 
+def render_expert_digest(lines: list[str], digest: dict[str, Any]) -> None:
+    if not digest:
+        return
+    lines.append("## 0.2 跟踪对象发言精炼")
+    lines.append("")
+    lines.append("```text")
+    lines.append(f"盘面颜色：{digest.get('market_color') or '未填写'}")
+    lines.append(f"交易类型：{digest.get('trade_type') or '未填写'}")
+    lines.append(f"主线焦点：{digest.get('main_focus') or '未填写'}")
+    lines.append(f"执行结论：{digest.get('execution') or '未填写'}")
+    lines.append("```")
+    lines.append("")
+    for label, key in [("共识", "consensus"), ("分歧", "divergence"), ("风险", "risk"), ("明日", "tomorrow")]:
+        value = digest.get(key)
+        if value:
+            lines.append(f"- {label}：{value}")
+    filters = digest.get("filters") or []
+    if filters:
+        lines.append("")
+        lines.append("明日过滤器：")
+        for item in filters:
+            lines.append(f"- {item}")
+    quotes = digest.get("quotes") or []
+    if quotes:
+        lines.append("")
+        lines.append("重点发言摘抄：")
+        for item in quotes:
+            tag = item.get("tag") or "摘抄"
+            source = item.get("source") or "跟踪对象"
+            quote = item.get("quote") or ""
+            takeaway = item.get("takeaway") or ""
+            lines.append(f"- [{tag}] {source}：{quote} -> {takeaway}")
+    if digest.get("source"):
+        lines.append("")
+        lines.append(f"来源：`{digest.get('source')}`")
+    lines.append("")
+
+
 def render_report(data: dict[str, Any]) -> str:
     index = data["index"]
     stocks = data["stocks"]
@@ -1252,7 +1345,7 @@ def render_report(data: dict[str, Any]) -> str:
     cash = safe_float((data.get("account") or {}).get("available_cash"))
     positions = data.get("positions") or {}
     if cash is not None or positions:
-        lines.append("### 账户与持仓")
+        lines.append("### 复盘对象")
         lines.append("")
         lines.append("```text")
         if cash is not None:
@@ -1260,11 +1353,8 @@ def render_report(data: dict[str, Any]) -> str:
         for symbol, pos in positions.items():
             role = pos.get("role") or ("趋势标的" if pos.get("analyze", True) else "只记录")
             analyze_note = "进入趋势复盘" if pos.get("analyze", True) else "不进入趋势复盘"
-            lines.append(
-                f"{symbol} {pos.get('name') or ''}：{role}，{analyze_note}；"
-                f"仓位 {pos.get('position_pct') or '-'}%，成本 {pos.get('cost') or '-'}，"
-                f"最新价 {pos.get('last_price') or '-'}，浮盈 {pos.get('profit') or '-'}"
-            )
+            note = f"；{pos.get('plan_note')}" if pos.get("plan_note") else ""
+            lines.append(f"{symbol} {pos.get('name') or ''}：{role}，{analyze_note}{note}")
         lines.append("```")
         lines.append("")
     lines.append("```text")
@@ -1282,6 +1372,7 @@ def render_report(data: dict[str, Any]) -> str:
     market_context = data.get("market_context") or {}
     market_ecology = data.get("market_ecology") or {}
     render_market_ecology(lines, market_ecology, market_context)
+    render_expert_digest(lines, data.get("expert_digest") or {})
 
     lines.append("## 1. 大盘总闸")
     lines.append("")
@@ -1323,10 +1414,8 @@ def render_report(data: dict[str, Any]) -> str:
         lines.append("")
         lines.append("```text")
         if position:
-            lines.append(
-                f"持仓接口：名称 {position.get('name') or '-'}，成本 {position.get('cost') or '-'}，"
-                f"仓位 {position.get('position_pct') or '-'}，硬止损 {position.get('hard_stop') or '-'}"
-            )
+            role = position.get("role") or ("趋势标的" if position.get("analyze", True) else "只记录")
+            lines.append(f"复盘配置：名称 {position.get('name') or '-'}，角色 {role}")
             if position.get("plan_note"):
                 lines.append(f"备注：{position['plan_note']}")
         lines.append(f"微观几何：5m中枢 ZD {price(center['ZD'])} / ZG {price(center['ZG'])}，收盘 {price(report['day']['close'])}")
@@ -1387,6 +1476,260 @@ def render_report(data: dict[str, Any]) -> str:
 
 def h(value: Any) -> str:
     return html.escape("" if value is None else str(value), quote=True)
+
+
+def clean_html_text(fragment: str) -> str:
+    text = re.sub(r"<br\s*/?>", "\n", fragment, flags=re.I)
+    text = re.sub(r"<[^>]+>", "", text)
+    text = html.unescape(text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def clean_quote_text(fragment: str) -> str:
+    return clean_html_text(fragment).strip("“”")
+
+
+def read_expert_dashboard(report_date: str, base_dir: Path = REPLIES_DIR) -> dict[str, Any]:
+    compact_date = str(report_date).replace("-", "")
+    path = base_dir / f"今日总结看板_{compact_date}.html"
+    if not path.exists():
+        return {}
+    raw = path.read_text(encoding="utf-8-sig")
+    digest: dict[str, Any] = {
+        "source_dashboard": str(path),
+        "selection_rule": "保留能转化为交易含义和明日动作的摘录；只表达情绪、闲聊或无法对应主线/风险/执行的内容不进入看板。",
+    }
+
+    metric_rows = []
+    for block in re.findall(r'<div class="metric">(.*?)</div></div>', raw, flags=re.S):
+        label = re.search(r'<div class="label">(.*?)</div>', block, flags=re.S)
+        value = re.search(r'<div class="value">(.*?)</div>', block, flags=re.S)
+        hint = re.search(r'<div class="hint">(.*?)</div>', block, flags=re.S)
+        if label and value:
+            metric_rows.append(
+                {
+                    "label": clean_html_text(label.group(1)),
+                    "value": clean_html_text(value.group(1)),
+                    "hint": clean_html_text(hint.group(1)) if hint else "",
+                }
+            )
+    if metric_rows:
+        digest["metrics"] = metric_rows
+        by_label = {item["label"]: item for item in metric_rows}
+        digest["market_color"] = by_label.get("盘面颜色", {}).get("value")
+        digest["trade_type"] = by_label.get("交易类型", {}).get("value")
+        digest["main_focus"] = by_label.get("主线焦点", {}).get("value")
+        digest["execution"] = by_label.get("执行结论", {}).get("value")
+
+    decisions = []
+    for label, text in re.findall(r'<div class="decision-row"><b>(.*?)</b><p>(.*?)</p></div>', raw, flags=re.S):
+        decisions.append({"label": clean_html_text(label), "text": clean_html_text(text)})
+    if decisions:
+        digest["decisions"] = decisions
+        for item in decisions:
+            key = {"共识": "consensus", "分歧": "divergence", "风险": "risk", "明日": "tomorrow"}.get(item["label"])
+            if key:
+                digest[key] = item["text"]
+
+    briefs = []
+    for title, text in re.findall(r'<div class="brief-card"><strong>(.*?)</strong><span>(.*?)</span></div>', raw, flags=re.S):
+        briefs.append({"title": clean_html_text(title), "text": clean_html_text(text)})
+    if briefs:
+        digest["briefs"] = briefs
+        digest["filters"] = [f"{item['title']}：{item['text']}" for item in briefs]
+
+    heat = []
+    for label, level in re.findall(r'<div class="bar-line"><span>(.*?)</span>.*?<b>(.*?)</b></div>', raw, flags=re.S):
+        heat.append({"label": clean_html_text(label), "level": clean_html_text(level)})
+    if heat:
+        digest["theme_heat"] = heat
+
+    for section_title, key in [("机会线索", "opportunities"), ("风险线索", "risk_lines")]:
+        match = re.search(rf'<h2>{section_title}</h2>\s*<ul class="list">(.*?)</ul>', raw, flags=re.S)
+        if match:
+            digest[key] = [clean_html_text(item) for item in re.findall(r"<li>(.*?)</li>", match.group(1), flags=re.S)]
+
+    quotes = []
+    for block in re.findall(r'<article class="quote-card">(.*?)</article>', raw, flags=re.S):
+        tag_match = re.search(r'<span class="badge [^"]+">(.*?)</span>', block, flags=re.S)
+        source_match = re.search(r'<div class="quote-meta">.*?</span><span>(.*?)</span></div>', block, flags=re.S)
+        quote_match = re.search(r"<blockquote>(.*?)</blockquote>", block, flags=re.S)
+        context_match = re.search(r'<div class="context">(.*?)</div>', block, flags=re.S)
+        takeaway_match = re.search(r'<div class="takeaway">(.*?)</div>', block, flags=re.S)
+        action_match = re.search(r'<div class="action">(.*?)</div>', block, flags=re.S)
+        url_match = re.search(r'<a href="([^"]+)"', block, flags=re.S)
+        if quote_match:
+            quotes.append(
+                {
+                    "tag": clean_html_text(tag_match.group(1)) if tag_match else "摘录",
+                    "source": clean_html_text(source_match.group(1)) if source_match else "跟踪对象",
+                    "quote": clean_quote_text(quote_match.group(1)),
+                    "context": clean_html_text(context_match.group(1)).replace("背景：", "", 1) if context_match else "",
+                    "takeaway": clean_html_text(takeaway_match.group(1)).replace("交易含义：", "", 1) if takeaway_match else "",
+                    "action": clean_html_text(action_match.group(1)).replace("明日动作：", "", 1) if action_match else "",
+                    "url": html.unescape(url_match.group(1)) if url_match else "",
+                }
+            )
+    if quotes:
+        digest["quotes"] = quotes
+    return digest
+
+
+def markdown_blocks(raw: str) -> list[dict[str, str]]:
+    parts = re.split(r"(?m)^##\s+\d+\.\s+", raw)
+    result: list[dict[str, str]] = []
+    for part in parts[1:]:
+        lines = part.splitlines()
+        if not lines:
+            continue
+        source = lines[0].strip()
+        text = "\n".join(lines[1:]).strip()
+        time_match = re.search(r"- 时间：(.+)", text)
+        link_match = re.search(r"- 链接：(\S+)", text)
+        body = re.split(r"- 链接：\S+", text, maxsplit=1)
+        body_text = body[1].strip() if len(body) > 1 else text
+        result.append(
+            {
+                "source": source,
+                "time": time_match.group(1).strip() if time_match else "",
+                "url": link_match.group(1).strip() if link_match else "",
+                "body": body_text,
+            }
+        )
+    return result
+
+
+def useful_quote_from_body(body: str) -> str:
+    keywords = ["AI", "科技", "涨价", "半导体", "PCB", "CPO", "光模块", "锂", "指数", "熊", "老登", "主线", "核心", "仓位", "不买", "保护", "调仓", "频繁交易", "震荡"]
+    noise = ["大道老师好", "查看图片", "回复", "无标题"]
+    lines = [
+        line.strip()
+        for line in body.splitlines()
+        if line.strip()
+        and not line.strip().startswith("$")
+        and line.strip() not in {"回复", "查看图片", "//"}
+        and not line.strip().startswith("@")
+        and not any(item in line.strip() for item in noise)
+    ]
+    if not lines:
+        return ""
+    text = " ".join(lines)
+    sentences = re.split(r"(?<=[。！？!?])\s*", text)
+    candidates = [item.strip() for item in sentences if len(item.strip()) >= 6]
+    keyword_candidates = [item for item in candidates if any(key in item for key in keywords)]
+    quote = keyword_candidates[0] if keyword_candidates else (candidates[0] if candidates else text)
+    return quote[:72]
+
+
+def quote_reading(body: str) -> tuple[str, str, str]:
+    text = body.lower()
+    if any(key in body for key in ["AI", "科技", "涨价", "半导体", "PCB", "CPO", "光模块"]):
+        return (
+            "主线",
+            "科技链仍是跟踪对象讨论核心，但资金更挑剔，后排和弱承接不能当主线。",
+            "只看核心和有承接的涨价/硬逻辑方向，不追情绪一致。"
+        )
+    if any(key in body for key in ["仓位", "卖", "加回", "调仓", "不买", "频繁交易"]):
+        return (
+            "执行",
+            "弱震荡里交易节奏比观点更重要，频繁切换和追涨容易把利润吐回去。",
+            "先给仓位和交易类型贴标签，等承接或放量确认后再动。"
+        )
+    if any(key in body for key in ["指数", "熊", "老登", "风险", "见顶", "不会马上熊"]):
+        return (
+            "风险",
+            "指数和体感可能继续分化，不能把局部反弹理解成系统性进攻。",
+            "新增买点降级，优先保护本金和核心仓位。"
+        )
+    if any(key in body for key in ["核心", "保护", "赛道", "etf"]):
+        return (
+            "核心",
+            "弱市里仍然强调核心资产和细分赛道保护，杂毛容错率低。",
+            "只做核心，不做无板块地位的打野。"
+        )
+    if "港股" in body or "百济" in body or "泡泡" in body:
+        return (
+            "映射",
+            "跟踪对象在讨论跨市场仓位切换，反映震荡市中更重确定性和业绩兑现。",
+            "A股只借鉴节奏，不直接映射为买点。"
+        )
+    return (
+        "观察",
+        "该摘录有助于理解今日情绪，但需要结合结构和板块承接再落到交易。",
+        "只作为辅助证据，不单独触发交易。"
+    )
+
+
+def read_expert_markdown_digest(report_date: str, base_dir: Path = REPLIES_DIR) -> dict[str, Any]:
+    path = base_dir / "今日汇总.md"
+    if not path.exists():
+        return {}
+    raw = path.read_text(encoding="utf-8-sig")
+    updated_match = re.search(r"- 更新时间：(.+)", raw)
+    updated_at = updated_match.group(1).strip() if updated_match else ""
+    if str(report_date) not in updated_at:
+        return {}
+    keywords = ["AI", "科技", "涨价", "半导体", "PCB", "CPO", "光模块", "锂", "指数", "熊", "老登", "主线", "核心", "仓位", "不买", "保护", "调仓", "频繁交易", "震荡"]
+    quotes = []
+    for block in markdown_blocks(raw):
+        body = block["body"]
+        if not any(key in body for key in keywords):
+            continue
+        quote = useful_quote_from_body(body)
+        if not quote or len(quote) < 8:
+            continue
+        tag, takeaway, action = quote_reading(body)
+        quotes.append(
+            {
+                "tag": tag,
+                "source": f"{block['source']} · {block['time'][11:16] if len(block['time']) >= 16 else ''}".strip(" ·"),
+                "quote": quote,
+                "context": "来自今日高手发言原始汇总，尚未经过高手总结看板二次精选。",
+                "takeaway": takeaway,
+                "action": action,
+                "url": block["url"],
+            }
+        )
+        if len(quotes) >= 12:
+            break
+    if not quotes:
+        return {}
+    return {
+        "source": str(path),
+        "updated_at": updated_at,
+        "market_color": "待精炼",
+        "trade_type": "防守等确认",
+        "main_focus": "科技核心 / 涨价线 / 风险控制",
+        "execution": "只做核心，等承接",
+        "consensus": "今日高手笔记已更新，但尚未生成正式总结看板；临时摘录显示讨论重点仍围绕科技核心、涨价线、仓位节奏和风险控制。",
+        "divergence": "趋势观点仍看核心科技和涨价线，交易层面更强调震荡市节奏、仓位切换和不要频繁追涨。",
+        "risk": "没有正式高手总结看板前，发言只作为辅助证据；最终买卖仍以指数结构、全市场题材生态和个股承接为准。",
+        "tomorrow": "先看指数结构和核心方向承接；没有承接不扩大仓位。",
+        "filters": [
+            "未生成正式高手总结看板时，临时摘录只作辅助，不替代盘面结论。",
+            "只做核心，后排和杂毛不因单条发言升级。",
+            "09:30-10:00 不追买，等承接或放量确认。",
+            "全A题材文件缺失时，题材生态不使用旧数据冒充。"
+        ],
+        "selection_rule": "临时从今日汇总中筛选能对应主线、风险、仓位和明日动作的摘录；正式复盘仍建议补生成今日总结看板。",
+        "quotes": quotes,
+    }
+
+
+def merged_expert_digest(config_digest: dict[str, Any], report_date: str) -> dict[str, Any]:
+    dashboard_digest = read_expert_dashboard(report_date)
+    if not dashboard_digest:
+        updated_at = str((config_digest or {}).get("updated_at") or "")
+        if str(report_date) in updated_at:
+            return config_digest or {}
+        markdown_digest = read_expert_markdown_digest(report_date)
+        if markdown_digest:
+            return markdown_digest
+        return {}
+    merged = dict(config_digest or {})
+    merged.update({key: value for key, value in dashboard_digest.items() if value not in (None, "", [])})
+    return merged
 
 
 def css_class_for_action(action: str) -> str:
@@ -1453,6 +1796,54 @@ def stock_plan_text(report: dict[str, Any], index_gate: str, position: dict[str,
     return " ".join(lines[2:5])
 
 
+def dashboard_stock_summary_text(report: dict[str, Any], action: str) -> str:
+    center = report.get("geometry_5m", {}).get("center")
+    close = safe_float(report.get("day", {}).get("close"))
+    pos = center_position(close, center)
+    state30 = report.get("state_30m") or {}
+    slope = safe_float(state30.get("dif_slope_12"))
+    slope_text = "向上修复" if slope is not None and slope > 0 else "继续走弱"
+    execution = report.get("execution") or {}
+    vwap = safe_float(execution.get("vwap"))
+    vwap_dev = safe_float(execution.get("vwap_dev_pct"))
+    return (
+        f"收盘在5m{pos}，30m DIF{slope_text}，收盘相对VWAP {pct(vwap_dev)}。"
+        f"当前结论是{action_label(action)}；明日先看 {price(vwap)} 附近能否承接，不把急拉当买点。"
+    )
+
+
+def dashboard_stock_structure_text(report: dict[str, Any]) -> str:
+    center = report.get("geometry_5m", {}).get("center") or {}
+    zd = safe_float(center.get("ZD"))
+    zg = safe_float(center.get("ZG"))
+    if zd is None or zg is None:
+        return "5m中枢边界暂不完整，先按VWAP和日内承接质量观察。没有清晰结构位前，不做主动加仓。"
+    return (
+        f"关键区间看 {price(zd)} 到 {price(zg)}：站上 {price(zg)} 才转强，跌破 {price(zd)} 转弱。"
+        "若仍在区间内，只等方向选择和回踩确认。"
+    )
+
+
+def dashboard_stock_theme_plan_text(
+    report: dict[str, Any],
+    index_gate: str,
+    position: dict[str, Any],
+    reason: str,
+) -> str:
+    theme = report.get("theme_attribution") or {}
+    lines = concise_action_card(report, index_gate=index_gate, position=position)
+    plan = " ".join(lines[2:4])
+    if theme:
+        themes = " / ".join(theme.get("market_themes") or ["未匹配固定题材"])
+        theme_text = (
+            f"题材归因：{theme.get('industry') or '-'} -> {themes}，今日 {pct(safe_float(theme.get('pct')))}，"
+            f"主力净额 {fmt_100m(safe_float(theme.get('main_net_100m')), 1)}。"
+        )
+    else:
+        theme_text = "题材归因暂未匹配到全市场强势方向，先按个股结构处理。"
+    return f"{theme_text} 执行上{reason}；{plan}"
+
+
 def index_overview_text(index: dict[str, Any], index_gate: str) -> str:
     center = index.get("geometry_5m", {}).get("center")
     day = index.get("day") or {}
@@ -1481,7 +1872,18 @@ def render_dashboard_market_ecology(ecology: dict[str, Any]) -> str:
         </div>
         """
     daily = ecology.get("daily") or {}
-    themes = "".join(
+    strong_directions = "".join(
+        f"""
+        <div class="theme-chip strong-theme">
+          <strong>{h(row.get('industry'))}</strong>
+          <span>均涨 {h(pct(safe_float(row.get('avg_pct'))))} · 涨停 {h(row.get('limit_up'))} · >=5% {h(row.get('gt5'))} · 成交 {h(fmt_100m(safe_float(row.get('amount_100m')), 1))}</span>
+          <span class="theme-leaders">领涨：{h('、'.join(str(x) for x in (row.get('top_names') or [])[:8]) or '-')}</span>
+        </div>
+        """
+        for row in (ecology.get("top_industries_by_avg") or [])[:6]
+        if (safe_float(row.get("avg_pct")) or -99) > 0
+    )
+    watch_chains = "".join(
         f"""
         <div class="theme-chip">
           <strong>{h(row.get('market_theme'))}</strong>
@@ -1501,8 +1903,131 @@ def render_dashboard_market_ecology(ecology: dict[str, Any]) -> str:
         <span>主力净额 {h(fmt_100m(safe_float(daily.get('main_net_100m')), 0))}</span>
       </div>
       <p>{h(theme_summary_line(ecology))}</p>
-      <div class="theme-grid">{themes}</div>
+      <strong class="subhead">今日强势方向</strong>
+      <div class="theme-grid">{strong_directions}</div>
+      <strong class="subhead">高成交链条观察</strong>
+      <div class="theme-grid secondary-theme-grid">{watch_chains}</div>
     </div>
+    """
+
+
+def heat_width(level: str) -> int:
+    if "高" in level:
+        return 82
+    if "活跃" in level:
+        return 58
+    if "弱" in level:
+        return 34
+    return 50
+
+
+def render_expert_quote_cards(digest: dict[str, Any]) -> str:
+    return "".join(
+        f"""
+        <article class="quote-card">
+          <div class="quote-meta"><span>{h(item.get('tag') or '摘抄')}</span><small>{h(item.get('source') or '跟踪对象')}</small></div>
+          <blockquote>{h('“' + str(item.get('quote') or '-') + '”')}</blockquote>
+          {f'<p><b>背景：</b>{h(item.get("context"))}</p>' if item.get("context") else ''}
+          {f'<p><b>交易含义：</b>{h(item.get("takeaway"))}</p>' if item.get("takeaway") else ''}
+          {f'<p><b>明日动作：</b>{h(item.get("action"))}</p>' if item.get("action") else ''}
+          {f'<a href="{h(item.get("url"))}">查看原帖</a>' if item.get("url") else ''}
+        </article>
+        """
+        for item in (digest.get("quotes") or [])
+    )
+
+
+def render_dashboard_expert_digest(digest: dict[str, Any]) -> str:
+    if not digest:
+        return ""
+    metrics = digest.get("metrics") or [
+        {"label": "盘面结论", "value": digest.get("market_color") or "-", "hint": digest.get("consensus") or ""},
+        {"label": "交易类型", "value": digest.get("trade_type") or "-", "hint": "先分交易类型，再决定处理方式。"},
+        {"label": "主线焦点", "value": digest.get("main_focus") or "-", "hint": "只看有板块合力和核心地位的方向。"},
+        {"label": "执行结论", "value": digest.get("execution") or "-", "hint": digest.get("tomorrow") or ""},
+    ]
+    metric_cards = "".join(
+        f"""
+        <section class="expert-metric-card">
+          <small>{h(item.get('label'))}</small>
+          <strong>{h(item.get('value'))}</strong>
+          <span>{h(item.get('hint'))}</span>
+        </section>
+        """
+        for item in metrics[:4]
+    )
+    decisions = digest.get("decisions") or [
+        {"label": "共识", "text": digest.get("consensus") or "-"},
+        {"label": "分歧", "text": digest.get("divergence") or "-"},
+        {"label": "风险", "text": digest.get("risk") or "-"},
+        {"label": "明日", "text": digest.get("tomorrow") or "-"},
+    ]
+    decision_rows = "".join(
+        f'<div class="decision-row"><b>{h(item.get("label"))}</b><p>{h(item.get("text"))}</p></div>'
+        for item in decisions
+        if item.get("text")
+    )
+    briefs = digest.get("briefs") or [
+        {"title": str(item).split("：", 1)[0], "text": str(item).split("：", 1)[1] if "：" in str(item) else str(item)}
+        for item in (digest.get("filters") or [])
+    ]
+    brief_cards = "".join(
+        f'<section class="brief-card"><strong>{h(item.get("title"))}</strong><span>{h(item.get("text"))}</span></section>'
+        for item in briefs[:4]
+    )
+    heat_rows = "".join(
+        f"""
+        <div class="bar-line">
+          <span>{h(item.get('label'))}</span>
+          <div class="track"><div class="fill" style="width: {heat_width(str(item.get('level') or ''))}%;"></div></div>
+          <b>{h(item.get('level'))}</b>
+        </div>
+        """
+        for item in (digest.get("theme_heat") or [])
+    )
+    opportunities = "".join(f"<li>{h(item)}</li>" for item in (digest.get("opportunities") or []))
+    risk_lines = "".join(f"<li>{h(item)}</li>" for item in (digest.get("risk_lines") or []))
+    return f"""
+    <div class="expert-digest">
+      <b>跟踪对象发言精炼</b>
+      <div class="expert-metrics">{metric_cards}</div>
+      <div class="expert-summary-grid">
+        <section class="expert-panel decision-panel">
+          <h3>核心判断</h3>
+          {decision_rows}
+        </section>
+        <section class="expert-panel">
+          <h3>明日过滤器</h3>
+          <div class="brief-grid">{brief_cards}</div>
+        </section>
+      </div>
+      <div class="expert-wide-grid">
+        <section class="expert-panel">
+          <h3>主线热度</h3>
+          <div class="bars">{heat_rows}</div>
+        </section>
+        <section class="expert-panel">
+          <h3>机会线索</h3>
+          <ul class="signal-list">{opportunities}</ul>
+        </section>
+        <section class="expert-panel">
+          <h3>风险线索</h3>
+          <ul class="signal-list">{risk_lines}</ul>
+        </section>
+      </div>
+    </div>
+    """
+
+
+def render_dashboard_expert_quotes(digest: dict[str, Any]) -> str:
+    if not digest or not digest.get("quotes"):
+        return ""
+    return f"""
+    <section class="expert-quotes-panel panel">
+      <strong class="subhead">有用摘录</strong>
+      <p class="quote-rule">{h(digest.get('selection_rule') or '')}</p>
+      <div class="quote-grid">{render_expert_quote_cards(digest)}</div>
+    </section>
     """
 
 
@@ -1526,26 +2051,26 @@ def index_action_paths(index: dict[str, Any]) -> dict[str, dict[str, Any]]:
     if close is not None and zd is not None and close < zd:
         return {
             "red": {
-                "title": f"红色路径：收复 {price(zd)}，再看 {price(zg)}",
+                "title": f"红色路径：收回5m中枢 {price(zd)}，再看上沿 {price(zg)}",
                 "items": [
-                    "先收回5m中枢下沿，系统风险才降级。",
-                    "继续收复中枢上沿后，再观察强结构延续。",
-                    "不追VWAP正偏离过大的急拉。",
+                    "这是下方离开失败后的回中枢，先按修复看。",
+                    "继续站上中枢上沿后，才观察是否形成5m三买。",
+                    "未完成中枢回收前，不把反抽当趋势买点。",
                 ],
             },
             "yellow": {
-                "title": f"黄色路径：守住 {support_label}",
+                "title": f"黄色路径：守住近端底分型 {support_label}",
                 "items": [
                     "只按弱修复处理，不把反弹当反转。",
-                    "等待5m二买/三买或VWAP承接确认。",
-                    "未收回5m中枢下沿前，个股新增信号降级。",
+                    "等待5m二买或重新回中枢确认。",
+                    "未收回中枢下沿前，个股新增信号降级。",
                 ],
             },
             "blue": {
-                "title": f"蓝色路径：跌破 {price(near_support)}",
+                "title": f"蓝色路径：跌破近端底分型 {price(near_support)}",
                 "items": [
-                    "全部新增信号降级。",
-                    "不新增趋势仓。",
+                    "下方离开中枢延续，全部新增信号降级。",
+                    "不新增趋势仓，先看是否出现背驰和止跌结构。",
                     "优先控制回撤，等待重新站回近端结构。",
                 ],
             },
@@ -1553,35 +2078,103 @@ def index_action_paths(index: dict[str, Any]) -> dict[str, dict[str, Any]]:
     if close is not None and zd is not None and zg is not None and close <= zg:
         return {
             "red": {
-                "title": f"红色路径：站上 {price(zg)}",
-                "items": ["指数站回中枢上沿，系统风险降级。", "只激活强结构个股。", "不追VWAP正偏离过大的急拉。"],
+                "title": f"红色路径：站上5m中枢上沿 {price(zg)}",
+                "items": ["向上离开中枢，系统风险降级。", "回踩不破上沿才按5m三买确认。", "确认前不追VWAP正偏离急拉。"],
             },
             "yellow": {
-                "title": f"黄色路径：守住 {price(zd)}",
-                "items": ["只做承接验证。", "等待5m二买/三买，不开盘追价。", "中枢内个股等待方向选择。"],
+                "title": f"黄色路径：中枢内守住 {price(zd)}",
+                "items": ["仍是5m中枢震荡，只做承接验证。", "等待5m二买/三买，不开盘追价。", "中枢内个股等待方向选择。"],
             },
             "blue": {
-                "title": f"蓝色路径：跌破 {price(zd)}",
-                "items": ["全部新增信号降级。", "不新增趋势仓。", "优先控制回撤，等待结构确认。"],
+                "title": f"蓝色路径：跌破5m中枢下沿 {price(zd)}",
+                "items": ["向下离开中枢，全部新增信号降级。", "不新增趋势仓。", "先等背驰或重新回中枢确认。"],
+            },
+        }
+    if close is not None and zg is not None and close > zg:
+        day = index.get("day") or {}
+        state30 = index.get("state_30m") or {}
+        proj30 = index.get("projection_30m") or {}
+        th30 = proj30.get("thresholds") or {}
+        post10_low = safe_float(day.get("post10_low"))
+        first30_close = safe_float(day.get("first30_close"))
+        repair_gate = safe_float(th.get("next_close_for_dif_above_last_bottom")) or first30_close or close
+        macd_gate = macd_floor or post10_low or close
+        inner_hold = max(x for x in [post10_low, macd_gate] if x is not None)
+        higher_repair = safe_float(th.get("next_close_for_dif_above_prev_bottom"))
+        thirty_zg = safe_float(proj30.get("zg"))
+        thirty_macd = safe_float(th30.get("flat_close_for_macd_improve"))
+        red_target = higher_repair or thirty_macd or safe_float(day.get("high")) or close
+        yellow_label = (
+            f"{price(inner_hold)}-{price(repair_gate)}"
+            if inner_hold is not None and repair_gate is not None and abs(inner_hold - repair_gate) > 0.01
+            else price(inner_hold or repair_gate)
+        )
+        blue_first = thirty_zg or zg
+        return {
+            "red": {
+                "title": f"红色路径：站稳离开段 {price(repair_gate)}，再看 {price(red_target)}",
+                "items": [
+                    "不是守老中枢，而是确认向上离开段继续有效。",
+                    "5m DIF修复后，回踩不破离开段承接才算强结构延续。",
+                    "确认前不追正偏离急拉，只做核心方向。"
+                ],
+            },
+            "yellow": {
+                "title": f"黄色路径：回踩离开段承接 {yellow_label}",
+                "items": [
+                    "这是离开段内部承接验证，不是回踩老中枢上沿。",
+                    "守住后再看5m二买/三买；破掉则先降到震荡修复。",
+                    "个股只看核心回踩承接，不追后排扩散。"
+                ],
+            },
+            "blue": {
+                "title": f"蓝色路径：跌回30m/5m防线 {price(blue_first)}，再看 {price(zg)}",
+                "items": [
+                    "跌回30m中枢上沿附近，说明离开段承接失败。",
+                    f"{price(zg)} 是上一5m中枢上沿，只作为最后降级线，不是第一观察位。",
+                    "跌回老中枢内则新增信号降级，等待重新构造。"
+                ],
             },
         }
     return {
         "red": {
-            "title": f"红色路径：守住 {price(zg)}",
-            "items": ["指数维持中枢上方，观察延续。", "只激活强结构个股。", "不追VWAP正偏离过大的急拉。"],
+            "title": f"红色路径：回踩不破5m中枢上沿 {price(zg)}",
+            "items": ["向上离开中枢后首次回踩不破，才算5m三买确认。", "只激活强结构个股。", "不追VWAP正偏离过大的急拉。"],
         },
         "yellow": {
-            "title": f"黄色路径：回踩 {price(zg)}",
-            "items": ["回踩上沿不破才算强。", "等待5m承接确认。", "跌回中枢内则降低新增优先级。"],
+            "title": f"黄色路径：回踩5m中枢上沿 {price(zg)}",
+            "items": ["这是三买验证区，不是追价区。", "等待5m承接和低级别买点。", "跌回中枢内则降低新增优先级。"],
         },
         "blue": {
-            "title": f"蓝色路径：跌回 {price(zd)} 下方",
-            "items": ["指数跌回中枢下方，新增信号降级。", "不新增趋势仓。", "优先控制回撤，等待结构确认。"],
+            "title": f"蓝色路径：跌回5m中枢内并失守 {price(zd)}",
+            "items": ["向上离开失败，新增信号降级。", "不新增趋势仓。", "优先控制回撤，等待背驰或重新回中枢。"],
         },
     }
 
 
-def render_dashboard_market_overview(index: dict[str, Any], index_gate: str, ecology: dict[str, Any]) -> str:
+def compact_action_path_html(action_paths: dict[str, dict[str, Any]]) -> str:
+    cards = []
+    for key, label in [("red", "红"), ("yellow", "黄"), ("blue", "蓝")]:
+        path = action_paths.get(key) or {}
+        title = str(path.get("title") or "").replace("红色路径：", "").replace("黄色路径：", "").replace("蓝色路径：", "")
+        summary = "；".join(str(item) for item in (path.get("items") or [])[:2])
+        cards.append(
+            f"""
+            <div class="path-mini gate-{key}">
+              <strong>{h(label)}：{h(title)}</strong>
+              <span>{h(summary)}</span>
+            </div>
+            """
+        )
+    return "".join(cards)
+
+
+def render_dashboard_market_overview(
+    index: dict[str, Any],
+    index_gate: str,
+    ecology: dict[str, Any],
+    action_paths: dict[str, dict[str, Any]],
+) -> str:
     center = index.get("geometry_5m", {}).get("center")
     day = index.get("day") or {}
     state30 = index.get("state_30m") or {}
@@ -1590,40 +2183,38 @@ def render_dashboard_market_overview(index: dict[str, Any], index_gate: str, eco
     dif = safe_float(state30.get("dif"))
     slope = safe_float(state30.get("dif_slope_12"))
     slope_text = "修复" if slope is not None and slope > 0 else "走弱"
+    zd = safe_float((center or {}).get("ZD"))
+    zg = safe_float((center or {}).get("ZG"))
     gate_text = {
-        "red": "偏红：指数站在5m中枢上方，允许验证强结构延续。",
-        "yellow": "黄色：指数在5m中枢附近，只做承接验证。",
-        "blue": "偏蓝：指数收在5m中枢下方，新增买点降级，个股按结构位和VWAP承接处理。",
-    }.get(index_gate, "观察：先看指数中枢位置和承接质量。")
-    proj5 = projection_text(index.get("projection_5m") or {})
-    proj30 = projection_text(index.get("projection_30m") or {})
+        "red": "可观察强结构延续，但不追VWAP正偏离急拉。",
+        "yellow": "只做承接验证，等5m二买/三买或回踩确认。",
+        "blue": "新增买点降级，先防守，等指数重新收回近端结构。",
+    }.get(index_gate, "先看指数中枢位置和承接质量。")
+    if close is not None and zd is not None and zg is not None and close < zd:
+        structure_text = f"上证收 {price(close)}，落在5m{pos}，先看能否收回 {price(zd)}；收不回就仍是弱修复。30m DIF {price(dif, 3)}，斜率{slope_text}，不按反转处理。"
+    elif zd is not None and zg is not None:
+        structure_text = f"上证收 {price(close)}，落在5m{pos}；站上 {price(zg)} 才转强，跌破 {price(zd)} 转防守。30m DIF {price(dif, 3)}，斜率{slope_text}，先看承接质量。"
+    else:
+        structure_text = f"上证收 {price(close)}，落在5m{pos}；30m DIF {price(dif, 3)}，斜率{slope_text}。结构位不完整时，先按VWAP和承接质量观察。"
     return f"""
     <div class="market-overview">
       <b>大盘总体分析</b>
       <div class="overview-grid">
         <section>
-          <strong>结构总闸</strong>
-          <span>{h(gate_text)} 上证收 {h(price(close))}，落在5m{h(pos)}。</span>
+          <strong>结论</strong>
+          <span>{h(gate_text)}</span>
         </section>
         <section>
-          <strong>30m动量</strong>
-          <span>DIF {h(price(dif, 3))}，斜率{h(slope_text)}；先看能否修复到中枢下沿附近。</span>
-        </section>
-        <section>
-          <strong>5m推演</strong>
-          <span>{h(proj5)}</span>
-        </section>
-        <section>
-          <strong>30m推演</strong>
-          <span>{h(proj30)}</span>
+          <strong>结构</strong>
+          <span>{h(structure_text)}</span>
         </section>
         <section class="wide">
-          <strong>题材生态</strong>
+          <strong>题材</strong>
           <span>{h(theme_summary_line(ecology))}</span>
         </section>
         <section class="wide">
-          <strong>执行纪律</strong>
-          <span>大盘总闸偏蓝时，新增买点降级；只做主线核心回踩承接，不追VWAP正偏离过大的急拉。</span>
+          <strong>明日路径</strong>
+          <div class="path-mini-grid">{compact_action_path_html(action_paths)}</div>
         </section>
       </div>
     </div>
@@ -1635,22 +2226,8 @@ def render_stock_card(report: dict[str, Any], index_gate: str) -> str:
     action, reason = classify_symbol(report, index_gate, pos)
     symbol = report["symbol"]
     name = pos.get("name") or symbol
-    rel = report.get("relative_strength") or {}
     exec_state = report.get("execution") or {}
     geo = report.get("geometry_5m") or {}
-    down = geo.get("down_area") or {}
-    proj5 = projection_text(report.get("projection_5m") or {})
-    proj30 = projection_text(report.get("projection_30m") or {})
-    plan = stock_plan_text(report, index_gate, pos)
-    theme = report.get("theme_attribution") or {}
-    theme_html = ""
-    if theme:
-        theme_html = f"""
-        <section>
-          <b>题材归因</b>
-          <span>{h(theme.get('industry'))} -> {h(' / '.join(theme.get('market_themes') or ['未匹配固定题材']))}；置信度 {h(theme.get('confidence') or '-')}。今日 {h(pct(safe_float(theme.get('pct'))))}，成交 {h(fmt_100m(safe_float(theme.get('amount_100m')), 1))}，主力净额 {h(fmt_100m(safe_float(theme.get('main_net_100m')), 1))}。</span>
-        </section>
-        """
     close = safe_float(report.get("day", {}).get("close"))
     center = geo.get("center")
     pos_label = center_position(close, center)
@@ -1674,21 +2251,16 @@ def render_stock_card(report: dict[str, Any], index_gate: str) -> str:
       <div class="levels">{render_level_pills(report)}</div>
       <div class="stock-sections">
         <section>
-          <b>当日走势</b>
-          <span>{h(today_walk_text(report))}</span>
+          <b>结论</b>
+          <span>{h(dashboard_stock_summary_text(report, action))}</span>
         </section>
         <section>
-          <b>5m推演</b>
-          <span>{h(proj5)} {h(momentum_area_text(down))}</span>
+          <b>结构</b>
+          <span>{h(dashboard_stock_structure_text(report))}</span>
         </section>
         <section>
-          <b>30m推演</b>
-          <span>{h(proj30)} {h(cross_level_text(report.get("state_30m") or {}))}</span>
-        </section>
-        {theme_html}
-        <section>
-          <b>操作计划</b>
-          <span>{h(plan)}</span>
+          <b>题材与执行</b>
+          <span>{h(dashboard_stock_theme_plan_text(report, index_gate, pos, reason))}</span>
         </section>
       </div>
     </article>
@@ -1699,7 +2271,6 @@ def render_dashboard_html(data: dict[str, Any]) -> str:
     index = data["index"]
     stocks = data["stocks"]
     index_gate = gate_state(index["current"])
-    idx_center = index["geometry_5m"]["center"]
     positions = data.get("positions") or {}
     market_ecology = data.get("market_ecology") or {}
     action_paths = index_action_paths(index)
@@ -1713,9 +2284,10 @@ def render_dashboard_html(data: dict[str, Any]) -> str:
         report["theme_attribution"] = theme_by_symbol.get(report["symbol"]) or {}
     ranked = sorted(stocks, key=lambda r: action_rank(classify_symbol(r, index_gate, r.get("position") or {})[0]))
 
-    gate_label = {"red": "偏红：可观察延续", "yellow": "黄色：只做验证", "blue": "偏蓝：全场防守"}.get(index_gate, "观察")
-    market_overview_html = render_dashboard_market_overview(index, index_gate, market_ecology)
+    market_overview_html = render_dashboard_market_overview(index, index_gate, market_ecology, action_paths)
     market_ecology_html = render_dashboard_market_ecology(market_ecology)
+    expert_digest_html = render_dashboard_expert_digest(data.get("expert_digest") or {})
+    expert_quotes_html = render_dashboard_expert_quotes(data.get("expert_digest") or {})
 
     stock_cards = "\n".join(render_stock_card(report, index_gate) for report in ranked)
 
@@ -1724,7 +2296,7 @@ def render_dashboard_html(data: dict[str, Any]) -> str:
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>{h(data['date'])} 缠论复盘看板</title>
+  <title>{h(data['date'])} 复盘看板</title>
   <style>
     :root {{
       --bg: #f6f8fb;
@@ -1760,13 +2332,21 @@ def render_dashboard_html(data: dict[str, Any]) -> str:
     .gate-red {{ background: #fff1ef; border-color: #ffc9c3; }}
     .gate-yellow {{ background: #fff8e8; border-color: #efd08d; }}
     .gate-blue {{ background: #eef5ff; border-color: #bfd7fb; }}
-    .market-overview {{ margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fbfdff; }}
+    .market-review-module {{ margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fbfdff; }}
+    .module-title {{ display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 8px; }}
+    .module-title b {{ font-size: 16px; }}
+    .module-title span {{ color: var(--muted); font-size: 13px; }}
+    .market-overview {{ padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #ffffff; }}
     .market-overview b {{ display: block; margin-bottom: 5px; font-size: 14px; }}
     .overview-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }}
     .overview-grid section {{ border: 1px solid var(--line); border-radius: 8px; padding: 9px; background: #ffffff; }}
     .overview-grid section.wide {{ grid-column: span 2; }}
     .overview-grid strong {{ display: block; font-size: 13px; margin-bottom: 4px; }}
     .overview-grid span {{ display: block; color: #344054; font-size: 13px; }}
+    .path-mini-grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }}
+    .path-mini {{ border: 1px solid var(--line); border-radius: 8px; padding: 8px; }}
+    .path-mini strong {{ margin-bottom: 3px; }}
+    .path-mini span {{ color: #344054; font-size: 12px; }}
     .market-ecology {{ margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #ffffff; }}
     .market-ecology b {{ display: block; margin-bottom: 8px; font-size: 14px; }}
     .market-ecology p {{ margin: 8px 0; color: #344054; font-size: 13px; }}
@@ -1775,6 +2355,48 @@ def render_dashboard_html(data: dict[str, Any]) -> str:
     .theme-chip strong {{ display: block; font-size: 13px; }}
     .theme-chip span {{ display: block; color: var(--muted); font-size: 12px; margin-top: 3px; }}
     .theme-leaders {{ color: #344054 !important; }}
+    .subhead {{ display: block; margin: 10px 0 6px; font-size: 13px; }}
+    .strong-theme {{ background: #f0fdf4; border-color: #b7e4c7; }}
+    .secondary-theme-grid .theme-chip {{ background: #fbfdff; }}
+    .secondary-theme-grid .theme-chip strong {{ color: #475467; }}
+    .expert-digest {{ margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #ffffff; }}
+    .expert-digest > b {{ display: block; margin-bottom: 8px; font-size: 14px; }}
+    .expert-metrics {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }}
+    .expert-metric-card, .expert-panel, .quote-card {{ border: 1px solid var(--line); border-radius: 8px; background: #ffffff; box-shadow: var(--shadow); }}
+    .expert-metric-card {{ padding: 12px; min-height: 94px; }}
+    .expert-metric-card small {{ display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px; }}
+    .expert-metric-card strong {{ display: block; font-size: 20px; line-height: 1.25; margin-bottom: 5px; }}
+    .expert-metric-card span {{ color: #667085; font-size: 13px; }}
+    .expert-summary-grid {{ display: grid; grid-template-columns: 1.35fr 1fr; gap: 12px; margin-bottom: 12px; }}
+    .expert-wide-grid {{ display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }}
+    .expert-panel {{ padding: 14px; }}
+    .expert-panel h3 {{ margin: 0 0 10px; font-size: 16px; }}
+    .decision-row {{ display: grid; grid-template-columns: 70px 1fr; gap: 12px; padding: 9px 0; border-top: 1px solid #edf0f5; }}
+    .decision-row:first-of-type {{ border-top: 0; padding-top: 0; }}
+    .decision-row b {{ font-size: 13px; }}
+    .decision-row p {{ margin: 0; color: #344054; font-size: 14px; }}
+    .brief-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }}
+    .brief-card {{ border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: #fbfcfe; }}
+    .brief-card strong {{ display: block; margin-bottom: 5px; font-size: 13px; }}
+    .brief-card span {{ color: #344054; font-size: 13px; }}
+    .bars {{ display: grid; gap: 10px; }}
+    .bar-line {{ display: grid; grid-template-columns: 78px 1fr 36px; gap: 8px; align-items: center; font-size: 13px; }}
+    .track {{ height: 9px; border-radius: 999px; background: #edf0f5; overflow: hidden; }}
+    .fill {{ height: 100%; border-radius: inherit; background: #2563eb; }}
+    .signal-list {{ display: grid; gap: 8px; margin: 0; padding-left: 0; list-style: none; }}
+    .signal-list li {{ position: relative; padding-left: 16px; color: #344054; font-size: 14px; }}
+    .signal-list li::before {{ content: ""; position: absolute; left: 0; top: .72em; width: 6px; height: 6px; border-radius: 50%; background: #2563eb; }}
+    .quote-rule {{ margin: -2px 0 8px; color: var(--muted); font-size: 13px; }}
+    .expert-quotes-panel {{ margin: 16px 0; }}
+    .expert-quotes-panel .subhead {{ font-size: 16px; margin-top: 0; }}
+    .quote-grid {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }}
+    .quote-card {{ padding: 12px; display: flex; flex-direction: column; gap: 8px; background: #fbfcfe; }}
+    .quote-meta {{ display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 12px; margin-bottom: 2px; }}
+    .quote-meta span {{ color: #1f4e79; font-weight: 800; }}
+    .quote-card blockquote {{ margin: 0; padding-left: 10px; border-left: 3px solid #bfd7fb; font-weight: 800; color: #17202a; }}
+    .quote-card p {{ margin: 0; padding-top: 7px; border-top: 1px solid #edf0f5; color: #344054; font-size: 13px; }}
+    .quote-card p b {{ color: #17202a; }}
+    .quote-card a {{ margin-top: auto; color: #245985; font-size: 13px; font-weight: 800; text-decoration: none; }}
     .section-title {{ margin: 22px 0 10px; font-size: 18px; }}
     .cards {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }}
     .stock-card {{ background: var(--panel); border: 1px solid var(--line); border-top: 5px solid var(--blue); border-radius: 8px; padding: 14px; box-shadow: var(--shadow); }}
@@ -1806,8 +2428,9 @@ def render_dashboard_html(data: dict[str, Any]) -> str:
     footer {{ color: var(--muted); margin: 22px 0 4px; font-size: 12px; }}
     @media (max-width: 920px) {{
       .page {{ padding: 14px; }}
-      .cards, .tree, .overview-grid {{ grid-template-columns: 1fr; }}
+      .cards, .tree, .overview-grid, .path-mini-grid, .expert-metrics, .expert-summary-grid, .expert-wide-grid, .brief-grid, .quote-grid {{ grid-template-columns: 1fr; }}
       .overview-grid section.wide {{ grid-column: auto; }}
+      .decision-row {{ grid-template-columns: 1fr; gap: 4px; }}
       .levels {{ grid-template-columns: 1fr 1fr; }}
       .skip-row {{ grid-template-columns: 1fr 1fr; }}
     }}
@@ -1820,35 +2443,22 @@ def render_dashboard_html(data: dict[str, Any]) -> str:
   <main class="page">
     <section class="hero">
       <div class="panel">
-        <h1>{h(data['date'])} 缠论复盘看板</h1>
-        <p class="subtitle">先看大盘和题材生态，再看标的动作。Markdown 和 JSON 仍保留作归档。</p>
-        {market_overview_html}
-        {market_ecology_html}
-        <h2 class="section-title">明日行动路径</h2>
-        <section class="tree top-tree">
-          <div class="path gate-red">
-            <h3>{h(action_paths['red']['title'])}</h3>
-            <ul>
-              {''.join(f"<li>{h(item)}</li>" for item in action_paths['red']['items'])}
-            </ul>
+        <h1>{h(data['date'])} 复盘看板</h1>
+        <section class="market-review-module">
+          <div class="module-title">
+            <b>盘面与题材复盘</b>
+            <span>结构、全市场题材、跟踪对象判断合并阅读。</span>
           </div>
-          <div class="path gate-yellow">
-            <h3>{h(action_paths['yellow']['title'])}</h3>
-            <ul>
-              {''.join(f"<li>{h(item)}</li>" for item in action_paths['yellow']['items'])}
-            </ul>
-          </div>
-          <div class="path gate-blue">
-            <h3>{h(action_paths['blue']['title'])}</h3>
-            <ul>
-              {''.join(f"<li>{h(item)}</li>" for item in action_paths['blue']['items'])}
-            </ul>
-          </div>
+          {market_overview_html}
+          {market_ecology_html}
+          {expert_digest_html}
         </section>
       </div>
     </section>
 
-    <h2 class="section-title">趋势持仓复盘</h2>
+    {expert_quotes_html}
+
+    <h2 class="section-title">标的复盘</h2>
     <section class="cards">{stock_cards}</section>
 
     <footer>生成自 tools/chanlun_replay_plan.py；数据源：本地 D:\\OneDrive\\Stock\\details。</footer>
@@ -1923,6 +2533,14 @@ def config_positions(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return positions
 
 
+def config_market_context(config: dict[str, Any], report_date: str) -> dict[str, Any]:
+    context = config.get("market_context", {}) or {}
+    date_hint = " ".join(str(context.get(key) or "") for key in ["date", "updated_at", "as_of"])
+    if date_hint and str(report_date) in date_hint:
+        return context
+    return {}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Chanlun four-layer replay and next-day action tree.")
     parser.add_argument("--index", default=DEFAULT_INDEX, help="Index symbol, default sh000001.")
@@ -1940,7 +2558,8 @@ def main() -> int:
     data["config_path"] = str(args.config) if args.config else None
     data["positions"] = positions
     data["account"] = config.get("account", {})
-    data["market_context"] = config.get("market_context", {})
+    data["market_context"] = config_market_context(config, data["date"])
+    data["expert_digest"] = merged_expert_digest(config.get("expert_digest", {}), data["date"])
     focus_symbols = sorted(set(symbols) | set(positions.keys()))
     data["market_ecology"] = build_market_ecology(data["date"], focus_symbols)
     args.out_dir.mkdir(parents=True, exist_ok=True)
