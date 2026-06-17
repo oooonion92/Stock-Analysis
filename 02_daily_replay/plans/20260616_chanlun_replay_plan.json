@@ -1,0 +1,3889 @@
+{
+  "date": "2026-06-16",
+  "index_symbol": "sh000001",
+  "symbols": [
+    "sz002463",
+    "sz002240",
+    "sh600487",
+    "sh588710"
+  ],
+  "index": {
+    "symbol": "sh000001",
+    "day": {
+      "date": "2026-06-16",
+      "open": 4094.212,
+      "high": 4103.926,
+      "low": 4081.49,
+      "close": 4091.892,
+      "last_time": "2026-06-16 15:00",
+      "first30_high": 4094.212,
+      "first30_low": 4084.669,
+      "first30_close": 4088.005,
+      "post10_high": 4103.926,
+      "post10_low": 4081.49
+    },
+    "current": {
+      "price": 4091.892,
+      "state": "below_active_bi_zs",
+      "active_zs": {
+        "start": "2026-06-16 10:00",
+        "end": "2026-06-16 14:25",
+        "ZD": 4093.528,
+        "ZG": 4097.166,
+        "bi_count": null
+      }
+    },
+    "summary": {
+      "bars": 1440,
+      "analysis_bars": 4273,
+      "bis": 335,
+      "zs": 57,
+      "signals": 15,
+      "candidates": 1,
+      "total_signals": 71,
+      "engine": "classic",
+      "app_version": "V10.20-0603-1715",
+      "sensitivity": "balanced",
+      "promoted_sm_count": 0,
+      "default_start_date": "2026-05-06",
+      "default_trading_days": 30,
+      "analysis_start": "2026-01-28 15:00",
+      "analysis_end": "2026-06-16 15:00",
+      "view_start": "2026-05-06 09:35",
+      "view_end": "2026-06-16 15:00",
+      "first_time": "2026-05-06 09:35",
+      "last_time": "2026-06-16 15:00"
+    },
+    "geometry_5m": {
+      "center": {
+        "start": "2026-06-16 10:00",
+        "end": "2026-06-16 14:25",
+        "ZD": 4093.528,
+        "ZG": 4097.166
+      },
+      "active_center_fractal_count": 6,
+      "nine_bi_lifecycle_warning": false,
+      "last_bottom": {
+        "time": "2026-06-16 13:50",
+        "type": "Bottom",
+        "value": 4081.49,
+        "dif": -1.5288664961535687,
+        "macd": -3.9960963047444378
+      },
+      "prev_bottom": {
+        "time": "2026-06-16 11:10",
+        "type": "Bottom",
+        "value": 4093.528,
+        "dif": 3.6920962170088387,
+        "macd": -1.4707063380718388
+      },
+      "last_top": {
+        "time": "2026-06-16 14:25",
+        "type": "Top",
+        "value": 4100.432,
+        "dif": 0.18054384970128012,
+        "macd": 1.3019885011549994
+      },
+      "prev_top": {
+        "time": "2026-06-16 13:10",
+        "type": "Top",
+        "value": 4102.832,
+        "dif": 3.1005205699311773,
+        "macd": -0.8648737117576006
+      },
+      "down_area": {
+        "previous": 2.9785064847731437,
+        "current": 25.375079868488232,
+        "ratio": 8.519397220792323,
+        "bottom_divergence": false,
+        "quantum_trap": false
+      },
+      "up_area": {
+        "previous": 0.0001,
+        "current": 2.2654804160618163,
+        "ratio": 22654.80416061816,
+        "top_divergence": false,
+        "quantum_trap": false
+      }
+    },
+    "state_30m": {
+      "last_time": "2026-06-16 15:00",
+      "close": 4091.892,
+      "dif": 19.79533204260315,
+      "dea": 21.030981475426508,
+      "macd": -2.471298865646716,
+      "dif_slope_12": -0.039685782309574334,
+      "recent_signals": [
+        {
+          "time": "2026-04-23 10:00",
+          "label": "1S",
+          "value": 4114.844
+        },
+        {
+          "time": "2026-04-27 14:00",
+          "label": "2S",
+          "value": 4092.831
+        },
+        {
+          "time": "2026-05-14 10:00",
+          "label": "1S",
+          "value": 4258.863
+        },
+        {
+          "time": "2026-05-19 15:00",
+          "label": "2S",
+          "value": 4170.289
+        },
+        {
+          "time": "2026-06-02 10:30",
+          "label": "1B",
+          "value": 4032.583
+        }
+      ]
+    },
+    "projection_5m": {
+      "period": "5m",
+      "bars": 6,
+      "last_close": 4091.892,
+      "last_dif": -0.5310229411788896,
+      "last_macd": -0.2135884016168682,
+      "zd": 4093.528,
+      "zg": 4097.166,
+      "thresholds": {
+        "flat_close_for_macd_improve": 4090.1243026560624,
+        "next_close_for_dif_above_last_bottom": 4078.143242880061,
+        "next_close_for_dif_above_prev_bottom": 4143.548044608069
+      },
+      "scenarios": {
+        "hold_current": {
+          "checkpoints": [
+            {
+              "bar": 1,
+              "close": 4091.892,
+              "dif": -0.4282821268857333,
+              "macd": -0.0064854184244445,
+              "negative_area": 0.0064854184244445,
+              "positive_area": 0.0
+            },
+            {
+              "bar": 3,
+              "close": 4092.5463999999997,
+              "dif": -0.19975372920453083,
+              "macd": 0.32582210530677147,
+              "negative_area": 0.0064854184244445,
+              "positive_area": 0.49899708652475605
+            },
+            {
+              "bar": 6,
+              "close": 4093.528,
+              "dif": 0.16192638240954693,
+              "macd": 0.6375906179364255,
+              "negative_area": 0.0064854184244445,
+              "positive_area": 2.1453639289187625
+            }
+          ],
+          "final": {
+            "bar": 6,
+            "close": 4093.528,
+            "dif": 0.16192638240954693,
+            "macd": 0.6375906179364255,
+            "negative_area": 0.0064854184244445,
+            "positive_area": 2.1453639289187625
+          }
+        },
+        "pullback_or_shallow_break": {
+          "checkpoints": [
+            {
+              "bar": 1,
+              "close": 4073.3270199999997,
+              "dif": -1.909249192412517,
+              "macd": -2.3760327232672984,
+              "negative_area": 2.3760327232672984,
+              "positive_area": 0.0
+            },
+            {
+              "bar": 3,
+              "close": 4087.509,
+              "dif": -2.1283513972380206,
+              "macd": -1.7410256947078855,
+              "negative_area": 6.668878476108978,
+              "positive_area": 0.0
+            },
+            {
+              "bar": 6,
+              "close": 4093.528,
+              "dif": -0.5256300208779976,
+              "macd": 1.1289477486306359,
+              "negative_area": 7.019274542738094,
+              "positive_area": 1.6922733041552163
+            }
+          ],
+          "final": {
+            "bar": 6,
+            "close": 4093.528,
+            "dif": -0.5256300208779976,
+            "macd": 1.1289477486306359,
+            "negative_area": 7.019274542738094,
+            "positive_area": 1.6922733041552163
+          }
+        },
+        "repair_to_resistance": {
+          "checkpoints": [
+            {
+              "bar": 1,
+              "close": 4091.892,
+              "dif": -0.4282821268857333,
+              "macd": -0.0064854184244445,
+              "negative_area": 0.0064854184244445,
+              "positive_area": 0.0
+            },
+            {
+              "bar": 3,
+              "close": 4094.0016,
+              "dif": -0.03885621700874253,
+              "macd": 0.5646846319424108,
+              "negative_area": 0.0064854184244445,
+              "positive_area": 0.8307270775485049
+            },
+            {
+              "bar": 6,
+              "close": 4097.166,
+              "dif": 0.8010316383688405,
+              "macd": 1.3944440699769027,
+              "negative_area": 0.0064854184244445,
+              "positive_area": 4.230792168431201
+            }
+          ],
+          "final": {
+            "bar": 6,
+            "close": 4097.166,
+            "dif": 0.8010316383688405,
+            "macd": 1.3944440699769027,
+            "negative_area": 0.0064854184244445,
+            "positive_area": 4.230792168431201
+          }
+        },
+        "continue_down": {
+          "checkpoints": [
+            {
+              "bar": 1,
+              "close": 4091.892,
+              "dif": -0.4282821268857333,
+              "macd": -0.0064854184244445,
+              "negative_area": 0.0064854184244445,
+              "positive_area": 0.0
+            },
+            {
+              "bar": 3,
+              "close": 4038.75332,
+              "dif": -6.147508501974244,
+              "macd": -8.503995792093436,
+              "negative_area": 11.77025492445656,
+              "positive_area": 0.0
+            },
+            {
+              "bar": 6,
+              "close": 3959.0452999999998,
+              "dif": -23.463307373947828,
+              "macd": -27.34033564231264,
+              "negative_area": 74.95128649936842,
+              "positive_area": 0.0
+            }
+          ],
+          "final": {
+            "bar": 6,
+            "close": 3959.0452999999998,
+            "dif": -23.463307373947828,
+            "macd": -27.34033564231264,
+            "negative_area": 74.95128649936842,
+            "positive_area": 0.0
+          }
+        }
+      }
+    },
+    "projection_30m": {
+      "period": "30m",
+      "bars": 2,
+      "last_close": 4091.892,
+      "last_dif": 19.79533204260315,
+      "last_macd": -2.471298865646716,
+      "zd": 3958.437,
+      "zg": 4010.872,
+      "thresholds": {
+        "flat_close_for_macd_improve": 4101.712540800064,
+        "next_close_for_dif_above_last_bottom": 3726.960703872016,
+        "next_close_for_dif_above_prev_bottom": 3600.86496
+      },
+      "scenarios": {
+        "hold_current": {
+          "checkpoints": [
+            {
+              "bar": 1,
+              "close": 4091.892,
+              "dif": 18.815125165465815,
+              "macd": -3.545370095937109,
+              "negative_area": 3.545370095937109,
+              "positive_area": 0.0
+            },
+            {
+              "bar": 1,
+              "close": 4091.892,
+              "dif": 18.815125165465815,
+              "macd": -3.545370095937109,
+              "negative_area": 3.545370095937109,
+              "positive_area": 0.0
+            },
+            {
+              "bar": 2,
+              "close": 4091.892,
+              "dif": 17.83273943362974,
+              "macd": -4.40811324768741,
+              "negative_area": 7.953483343624519,
+              "positive_area": 0.0
+            }
+          ],
+          "final": {
+            "bar": 2,
+            "close": 4091.892,
+            "dif": 17.83273943362974,
+            "macd": -4.40811324768741,
+            "negative_area": 7.953483343624519,
+            "positive_area": 0.0
+          }
+        },
+        "pullback_or_shallow_break": {
+          "checkpoints": [
+            {
+              "bar": 1,
+              "close": 4091.892,
+              "dif": 18.815125165465815,
+              "macd": -3.545370095937109,
+              "negative_area": 3.545370095937109,
+              "positive_area": 0.0
+            },
+            {
+              "bar": 1,
+              "close": 4091.892,
+              "dif": 18.815125165465815,
+              "macd": -3.545370095937109,
+              "negative_area": 3.545370095937109,
+              "positive_area": 0.0
+            },
+            {
+              "bar": 2,
+              "close": 4010.872,
+              "dif": 11.369605530495846,
+              "macd": -14.74912749270164,
+              "negative_area": 18.294497588638748,
+              "positive_area": 0.0
+            }
+          ],
+          "final": {
+            "bar": 2,
+            "close": 4010.872,
+            "dif": 11.369605530495846,
+            "macd": -14.74912749270164,
+            "negative_area": 18.294497588638748,
+            "positive_area": 0.0
+          }
+        },
+        "repair_to_resistance": {
+          "checkpoints": [
+            {
+              "bar": 1,
+              "close": 4091.892,
+              "dif": 18.815125165465815,
+              "macd": -3.545370095937109,
+              "negative_area": 3.545370095937109,
+              "positive_area": 0.0
+            },
+            {
+              "bar": 1,
+              "close": 4091.892,
+              "dif": 18.815125165465815,
+              "macd": -3.545370095937109,
+              "negative_area": 3.545370095937109,
+              "positive_area": 0.0
+            },
+            {
+              "bar": 2,
+              "close": 4103.926,
+              "dif": 18.792716641606603,
+              "macd": -2.8721497149244257,
+              "negative_area": 6.417519810861535,
+              "positive_area": 0.0
+            }
+          ],
+          "final": {
+            "bar": 2,
+            "close": 4103.926,
+            "dif": 18.792716641606603,
+            "macd": -2.8721497149244257,
+            "negative_area": 6.417519810861535,
+            "positive_area": 0.0
+          }
+        },
+        "continue_down": {
+          "checkpoints": [
+            {
+              "bar": 1,
+              "close": 4091.892,
+              "dif": 18.815125165465815,
+              "macd": -3.545370095937109,
+              "negative_area": 3.545370095937109,
+              "positive_area": 0.0
+            },
+            {
+              "bar": 1,
+              "close": 4091.892,
+              "dif": 18.815125165465815,
+              "macd": -3.545370095937109,
+              "negative_area": 3.545370095937109,
+              "positive_area": 0.0
+            },
+            {
+              "bar": 2,
+              "close": 3958.437,
+              "dif": 7.186756527647049,
+              "macd": -21.441685897259717,
+              "negative_area": 24.987055993196826,
+              "positive_area": 0.0
+            }
+          ],
+          "final": {
+            "bar": 2,
+            "close": 3958.437,
+            "dif": 7.186756527647049,
+            "macd": -21.441685897259717,
+            "negative_area": 24.987055993196826,
+            "positive_area": 0.0
+          }
+        }
+      }
+    },
+    "execution": {
+      "cooling_protocol": "index_vwap_skipped",
+      "day": {
+        "date": "2026-06-16",
+        "open": 4094.212,
+        "high": 4103.926,
+        "low": 4081.49,
+        "close": 4091.892,
+        "last_time": "2026-06-16 15:00",
+        "first30_high": 4094.212,
+        "first30_low": 4084.669,
+        "first30_close": 4088.005,
+        "post10_high": 4103.926,
+        "post10_low": 4081.49
+      }
+    },
+    "relative_strength": null,
+    "recent_signals": [
+      {
+        "time": "2026-06-12 14:50",
+        "label": "3B",
+        "price": 4023.369,
+        "level": "5m",
+        "status": null
+      },
+      {
+        "time": "2026-06-15 13:20",
+        "label": "3B",
+        "price": 4063.673,
+        "level": "5m",
+        "status": null
+      },
+      {
+        "time": "2026-06-15 14:20",
+        "label": "3B",
+        "price": 4077.87,
+        "level": "5m",
+        "status": null
+      },
+      {
+        "time": "2026-06-16 10:45",
+        "label": "1S",
+        "price": 4103.926,
+        "level": "5m",
+        "status": null
+      },
+      {
+        "time": "2026-06-16 13:10",
+        "label": "2S",
+        "price": 4102.832,
+        "level": "5m",
+        "status": null
+      },
+      {
+        "time": "2026-05-14 10:00",
+        "label": "1S",
+        "price": 4258.863,
+        "level": "30m",
+        "status": null
+      },
+      {
+        "time": "2026-05-19 15:00",
+        "label": "2S",
+        "price": 4170.289,
+        "level": "30m",
+        "status": null
+      },
+      {
+        "time": "2026-06-03 14:30",
+        "label": "3S",
+        "price": 4107.046,
+        "level": "30m",
+        "status": null
+      }
+    ]
+  },
+  "stocks": [
+    {
+      "symbol": "sz002463",
+      "day": {
+        "date": "2026-06-16",
+        "open": 134.2,
+        "high": 144.65,
+        "low": 134.04,
+        "close": 140.64,
+        "last_time": "2026-06-16 15:00",
+        "first30_high": 139.19,
+        "first30_low": 134.04,
+        "first30_close": 138.16,
+        "post10_high": 144.65,
+        "post10_low": 136.47,
+        "vwap": 139.28720057448254,
+        "vwap_source": "volume_typical_price",
+        "vwap_dev_pct": 0.9712302493968483,
+        "first30_vwap_max_dev_pct": 1.6001529890300903,
+        "first30_vwap_min_dev_pct": -0.4151673514272147,
+        "post10_vwap_broken": true
+      },
+      "current": {
+        "price": 140.64,
+        "state": "inside_active_bi_zs",
+        "active_zs": {
+          "start": "2026-06-16 11:10",
+          "end": "2026-06-16 14:45",
+          "ZD": 139.47,
+          "ZG": 140.73,
+          "bi_count": null
+        }
+      },
+      "summary": {
+        "bars": 1440,
+        "analysis_bars": 4802,
+        "bis": 367,
+        "zs": 60,
+        "signals": 6,
+        "candidates": 0,
+        "total_signals": 77,
+        "engine": "classic",
+        "app_version": "V10.20-0603-1715",
+        "sensitivity": "balanced",
+        "promoted_sm_count": 0,
+        "default_start_date": "2026-05-06",
+        "default_trading_days": 30,
+        "analysis_start": "2026-01-13 14:55",
+        "analysis_end": "2026-06-16 15:00",
+        "view_start": "2026-05-06 09:35",
+        "view_end": "2026-06-16 15:00",
+        "first_time": "2026-05-06 09:35",
+        "last_time": "2026-06-16 15:00"
+      },
+      "geometry_5m": {
+        "center": {
+          "start": "2026-06-16 11:10",
+          "end": "2026-06-16 14:45",
+          "ZD": 139.47,
+          "ZG": 140.73
+        },
+        "active_center_fractal_count": 3,
+        "nine_bi_lifecycle_warning": false,
+        "last_bottom": {
+          "time": "2026-06-16 14:45",
+          "type": "Bottom",
+          "value": 139.47,
+          "dif": 0.8513917871599972,
+          "macd": -0.5782116853608765
+        },
+        "prev_bottom": {
+          "time": "2026-06-16 11:10",
+          "type": "Bottom",
+          "value": 137.95,
+          "dif": 1.242414923857325,
+          "macd": -0.5738486395402305
+        },
+        "last_top": {
+          "time": "2026-06-16 14:05",
+          "type": "Top",
+          "value": 144.65,
+          "dif": 1.196648401556132,
+          "macd": 0.6967927625570303
+        },
+        "prev_top": {
+          "time": "2026-06-16 10:20",
+          "type": "Top",
+          "value": 140.73,
+          "dif": 1.9828740043017206,
+          "macd": 0.5896184937678548
+        },
+        "down_area": {
+          "previous": 2.009861732175787,
+          "current": 0.9225087999586035,
+          "ratio": 0.45899117595514216,
+          "bottom_divergence": false,
+          "quantum_trap": false
+        },
+        "up_area": {
+          "previous": 6.225583339986752,
+          "current": 1.2685240038095797,
+          "ratio": 0.20375986225449505,
+          "top_divergence": true,
+          "quantum_trap": false
+        }
+      },
+      "state_30m": {
+        "last_time": "2026-06-16 15:00",
+        "close": 140.64,
+        "dif": 2.8560196684906316,
+        "dea": 1.849364553087761,
+        "macd": 2.0133102308057413,
+        "dif_slope_12": 0.32469984892234127,
+        "recent_signals": [
+          {
+            "time": "2026-05-18 14:00",
+            "label": "2S",
+            "value": 105.92
+          },
+          {
+            "time": "2026-05-29 11:00",
+            "label": "1S",
+            "value": 138.87
+          },
+          {
+            "time": "2026-06-03 11:00",
+            "label": "2S",
+            "value": 138.42
+          },
+          {
+            "time": "2026-06-04 15:00",
+            "label": "1S",
+            "value": 142.78
+          },
+          {
+            "time": "2026-06-08 10:00",
+            "label": "1B",
+            "value": 125.0
+          }
+        ]
+      },
+      "projection_5m": {
+        "period": "5m",
+        "bars": 6,
+        "last_close": 140.64,
+        "last_dif": 0.48493106680382425,
+        "last_macd": -0.7430987745276578,
+        "zd": 139.47,
+        "zg": 140.73,
+        "thresholds": {
+          "flat_close_for_macd_improve": 139.89067008002365,
+          "next_close_for_dif_above_last_bottom": 145.92581376003585,
+          "next_close_for_dif_above_prev_bottom": 150.82683648004576
+        },
+        "scenarios": {
+          "hold_current": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 140.64,
+                "dif": 0.4297984656461722,
+                "macd": -0.6826911814743695,
+                "negative_area": 0.6826911814743695,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 3,
+                "close": 140.172,
+                "dif": 0.2879302741841627,
+                "macd": -0.6425483543976234,
+                "negative_area": 1.9782080214774298,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 6,
+                "close": 139.47,
+                "dif": 0.036675261509628854,
+                "macd": -0.6574710173116262,
+                "negative_area": 3.92855747121769,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 6,
+              "close": 139.47,
+              "dif": 0.036675261509628854,
+              "macd": -0.6574710173116262,
+              "negative_area": 3.92855747121769,
+              "positive_area": 0.0
+            }
+          },
+          "pullback_or_shallow_break": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 133.77192,
+                "dif": -0.1180825599948605,
+                "macd": -1.5593008225000218,
+                "negative_area": 1.5593008225000218,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 3,
+                "close": 136.755,
+                "dif": -0.697087618885746,
+                "macd": -1.7804516272308692,
+                "negative_area": 5.306738074703716,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 6,
+                "close": 139.47,
+                "dif": -0.3846386815912126,
+                "macd": -0.5156414322964128,
+                "negative_area": 7.866387356085275,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 6,
+              "close": 139.47,
+              "dif": -0.3846386815912126,
+              "macd": -0.5156414322964128,
+              "negative_area": 7.866387356085275,
+              "positive_area": 0.0
+            }
+          },
+          "repair_to_resistance": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 140.64,
+                "dif": 0.4297984656461722,
+                "macd": -0.6826911814743695,
+                "negative_area": 0.6826911814743695,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 3,
+                "close": 140.676,
+                "dif": 0.34365618549981036,
+                "macd": -0.5598197168054058,
+                "negative_area": 1.8633152813211193,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 6,
+                "close": 140.73,
+                "dif": 0.2580256250359696,
+                "macd": -0.39533925547232973,
+                "negative_area": 3.206281610364149,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 6,
+              "close": 140.73,
+              "dif": 0.2580256250359696,
+              "macd": -0.39533925547232973,
+              "negative_area": 3.206281610364149,
+              "positive_area": 0.0
+            }
+          },
+          "continue_down": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 140.64,
+                "dif": 0.4297984656461722,
+                "macd": -0.6826911814743695,
+                "negative_area": 0.6826911814743695,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 3,
+                "close": 136.39151999999999,
+                "dif": -0.13006713297971828,
+                "macd": -1.263091925517957,
+                "negative_area": 2.8400129943071435,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 6,
+                "close": 130.0188,
+                "dif": -1.6236632748082798,
+                "macd": -2.6237088804037914,
+                "negative_area": 9.346314309392298,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 6,
+              "close": 130.0188,
+              "dif": -1.6236632748082798,
+              "macd": -2.6237088804037914,
+              "negative_area": 9.346314309392298,
+              "positive_area": 0.0
+            }
+          }
+        }
+      },
+      "projection_30m": {
+        "period": "30m",
+        "bars": 2,
+        "last_close": 140.64,
+        "last_dif": 2.8560196684906316,
+        "last_macd": 2.0133102308057413,
+        "zd": 125.36,
+        "zg": 134.79,
+        "thresholds": {
+          "flat_close_for_macd_improve": 143.83309056003162,
+          "next_close_for_dif_above_last_bottom": 123.76319999999998,
+          "next_close_for_dif_above_prev_bottom": 123.76319999999998
+        },
+        "scenarios": {
+          "hold_current": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 140.64,
+                "dif": 2.9104936284311407,
+                "macd": 1.697806520549408,
+                "negative_area": 0.0,
+                "positive_area": 1.697806520549408
+              },
+              {
+                "bar": 1,
+                "close": 140.64,
+                "dif": 2.9104936284311407,
+                "macd": 1.697806520549408,
+                "negative_area": 0.0,
+                "positive_area": 1.697806520549408
+              },
+              {
+                "bar": 2,
+                "close": 140.64,
+                "dif": 2.9200046383169536,
+                "macd": 1.373462832256827,
+                "negative_area": 0.0,
+                "positive_area": 3.071269352806235
+              }
+            ],
+            "final": {
+              "bar": 2,
+              "close": 140.64,
+              "dif": 2.9200046383169536,
+              "macd": 1.373462832256827,
+              "negative_area": 0.0,
+              "positive_area": 3.071269352806235
+            }
+          },
+          "pullback_or_shallow_break": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 140.64,
+                "dif": 2.9104936284311407,
+                "macd": 1.697806520549408,
+                "negative_area": 0.0,
+                "positive_area": 1.697806520549408
+              },
+              {
+                "bar": 1,
+                "close": 140.64,
+                "dif": 2.9104936284311407,
+                "macd": 1.697806520549408,
+                "negative_area": 0.0,
+                "positive_area": 1.697806520549408
+              },
+              {
+                "bar": 2,
+                "close": 134.79,
+                "dif": 2.453337971650285,
+                "macd": 0.6267961655901573,
+                "negative_area": 0.0,
+                "positive_area": 2.324602686139565
+              }
+            ],
+            "final": {
+              "bar": 2,
+              "close": 134.79,
+              "dif": 2.453337971650285,
+              "macd": 0.6267961655901573,
+              "negative_area": 0.0,
+              "positive_area": 2.324602686139565
+            }
+          },
+          "repair_to_resistance": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 140.64,
+                "dif": 2.9104936284311407,
+                "macd": 1.697806520549408,
+                "negative_area": 0.0,
+                "positive_area": 1.697806520549408
+              },
+              {
+                "bar": 1,
+                "close": 140.64,
+                "dif": 2.9104936284311407,
+                "macd": 1.697806520549408,
+                "negative_area": 0.0,
+                "positive_area": 1.697806520549408
+              },
+              {
+                "bar": 2,
+                "close": 144.65,
+                "dif": 3.239890678202954,
+                "macd": 1.8852804960744276,
+                "negative_area": 0.0,
+                "positive_area": 3.5830870166238356
+              }
+            ],
+            "final": {
+              "bar": 2,
+              "close": 144.65,
+              "dif": 3.239890678202954,
+              "macd": 1.8852804960744276,
+              "negative_area": 0.0,
+              "positive_area": 3.5830870166238356
+            }
+          },
+          "continue_down": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 140.64,
+                "dif": 2.9104936284311407,
+                "macd": 1.697806520549408,
+                "negative_area": 0.0,
+                "positive_area": 1.697806520549408
+              },
+              {
+                "bar": 1,
+                "close": 140.64,
+                "dif": 2.9104936284311407,
+                "macd": 1.697806520549408,
+                "negative_area": 0.0,
+                "positive_area": 1.697806520549408
+              },
+              {
+                "bar": 2,
+                "close": 125.36,
+                "dif": 1.7010872593995714,
+                "macd": -0.5768049740109844,
+                "negative_area": 0.5768049740109844,
+                "positive_area": 1.697806520549408
+              }
+            ],
+            "final": {
+              "bar": 2,
+              "close": 125.36,
+              "dif": 1.7010872593995714,
+              "macd": -0.5768049740109844,
+              "negative_area": 0.5768049740109844,
+              "positive_area": 1.697806520549408
+            }
+          }
+        }
+      },
+      "execution": {
+        "cooling_protocol": "09:30-10:00 no blind buy",
+        "vwap": 139.28720057448254,
+        "vwap_source": "volume_typical_price",
+        "vwap_dev_pct": 0.9712302493968483,
+        "first30_vwap_max_dev_pct": 1.6001529890300903,
+        "first30_vwap_min_dev_pct": -0.4151673514272147,
+        "post10_vwap_broken": true,
+        "induced_chase_risk": true,
+        "panic_flush": false,
+        "day": {
+          "date": "2026-06-16",
+          "open": 134.2,
+          "high": 144.65,
+          "low": 134.04,
+          "close": 140.64,
+          "last_time": "2026-06-16 15:00",
+          "first30_high": 139.19,
+          "first30_low": 134.04,
+          "first30_close": 138.16,
+          "post10_high": 144.65,
+          "post10_low": 136.47,
+          "vwap": 139.28720057448254,
+          "vwap_source": "volume_typical_price",
+          "vwap_dev_pct": 0.9712302493968483,
+          "first30_vwap_max_dev_pct": 1.6001529890300903,
+          "first30_vwap_min_dev_pct": -0.4151673514272147,
+          "post10_vwap_broken": true
+        }
+      },
+      "relative_strength": {
+        "class": "cycle_misaligned_pulse",
+        "downside_capture": 2.7109954241250223,
+        "corr": 0.5364208922920762,
+        "risk_windows": 144,
+        "avg_index_drop_pct": -0.21260121936521034,
+        "avg_stock_move_pct": -0.5763609328624852
+      },
+      "recent_signals": [
+        {
+          "time": "2026-05-20 13:40",
+          "label": "3B",
+          "price": 102.56,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-05-22 11:15",
+          "label": "3B",
+          "price": 111.09,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-05-25 10:10",
+          "label": "3B",
+          "price": 119.2,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-06-02 10:00",
+          "label": "1B",
+          "price": 119.2,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-06-03 09:35",
+          "label": "2B",
+          "price": 129.69,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-06-16 14:05",
+          "label": "1S",
+          "price": 144.65,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-05-28 10:00",
+          "label": "3B",
+          "price": 125.36,
+          "level": "30m",
+          "status": null
+        },
+        {
+          "time": "2026-06-02 10:00",
+          "label": "3B",
+          "price": 119.2,
+          "level": "30m",
+          "status": null
+        }
+      ],
+      "position": {
+        "name": "沪电股份",
+        "shares": null,
+        "available_shares": null,
+        "market_value": null,
+        "cost": null,
+        "last_price": null,
+        "position_pct": null,
+        "profit_pct": null,
+        "profit": null,
+        "hard_stop": null,
+        "plan_note": "PCB/AI硬件链核心容量标的，板块连续强势两天，明日不追加速，重点看VWAP和5m中枢上沿承接。",
+        "role": "趋势观察",
+        "analyze": true
+      },
+      "theme_attribution": {
+        "code": "002463",
+        "name": "沪电股份",
+        "industry": "PCB",
+        "market_themes": [
+          "AI服务器链 / 高端PCB / MLCC / 半导体材料"
+        ],
+        "confidence": "中高",
+        "reading": "前期强势链条要重点区分主线延续和高位兑现；放量下跌时按分歧处理。",
+        "pct": 5.14,
+        "boards": null,
+        "streak": 2.0,
+        "amount_100m": 153.326663,
+        "main_net_100m": 7.696998,
+        "open_pct": 0.33,
+        "prev_pct": 6.84
+      }
+    },
+    {
+      "symbol": "sz002240",
+      "day": {
+        "date": "2026-06-16",
+        "open": 50.52,
+        "high": 50.55,
+        "low": 48.8,
+        "close": 48.81,
+        "last_time": "2026-06-16 15:00",
+        "first30_high": 50.55,
+        "first30_low": 48.8,
+        "first30_close": 49.48,
+        "post10_high": 50.5,
+        "post10_low": 48.8,
+        "vwap": 49.41918621660925,
+        "vwap_source": "volume_typical_price",
+        "vwap_dev_pct": -1.2326917200520482,
+        "first30_vwap_max_dev_pct": 0.3994463103148549,
+        "first30_vwap_min_dev_pct": -0.7726417629669524,
+        "post10_vwap_broken": true
+      },
+      "current": {
+        "price": 48.81,
+        "state": "below_active_bi_zs",
+        "active_zs": {
+          "start": "2026-06-15 14:30",
+          "end": "2026-06-16 13:35",
+          "ZD": 50.15,
+          "ZG": 51.03,
+          "bi_count": null
+        }
+      },
+      "summary": {
+        "bars": 1440,
+        "analysis_bars": 2162,
+        "bis": 160,
+        "zs": 29,
+        "signals": 12,
+        "candidates": 0,
+        "total_signals": 28,
+        "engine": "classic",
+        "app_version": "V10.20-0603-1715",
+        "sensitivity": "balanced",
+        "promoted_sm_count": 0,
+        "default_start_date": "2026-05-06",
+        "default_trading_days": 30,
+        "analysis_start": "2026-04-09 14:55",
+        "analysis_end": "2026-06-16 15:00",
+        "view_start": "2026-05-06 09:35",
+        "view_end": "2026-06-16 15:00",
+        "first_time": "2026-05-06 09:35",
+        "last_time": "2026-06-16 15:00"
+      },
+      "geometry_5m": {
+        "center": {
+          "start": "2026-06-15 14:30",
+          "end": "2026-06-16 13:35",
+          "ZD": 50.15,
+          "ZG": 51.03
+        },
+        "active_center_fractal_count": 5,
+        "nine_bi_lifecycle_warning": false,
+        "last_bottom": {
+          "time": "2026-06-16 13:35",
+          "type": "Bottom",
+          "value": 49.1,
+          "dif": -0.1362028766411072,
+          "macd": -0.11909245177368633
+        },
+        "prev_bottom": {
+          "time": "2026-06-16 09:50",
+          "type": "Bottom",
+          "value": 48.8,
+          "dif": -0.17755057317670975,
+          "macd": -0.30485949369019644
+        },
+        "last_top": {
+          "time": "2026-06-16 14:15",
+          "type": "Top",
+          "value": 49.44,
+          "dif": -0.132906982398886,
+          "macd": -0.018631650900685526
+        },
+        "prev_top": {
+          "time": "2026-06-16 11:25",
+          "type": "Top",
+          "value": 50.5,
+          "dif": 0.026541244847678058,
+          "macd": 0.25875622457120273
+        },
+        "down_area": {
+          "previous": 0.8362183438290212,
+          "current": 0.29890303781619104,
+          "ratio": 0.3574461622637003,
+          "bottom_divergence": false,
+          "quantum_trap": false
+        },
+        "up_area": {
+          "previous": 1.3437863318918521,
+          "current": 0.0001,
+          "ratio": 7.44165925986275e-05,
+          "top_divergence": false,
+          "quantum_trap": false
+        }
+      },
+      "state_30m": {
+        "last_time": "2026-06-16 15:00",
+        "close": 48.81,
+        "dif": -0.07422022125751937,
+        "dea": 0.255113392268224,
+        "macd": -0.6586672270514867,
+        "dif_slope_12": -0.07720748837939925,
+        "recent_signals": [
+          {
+            "time": "2026-03-16 11:00",
+            "label": "1B",
+            "value": 37.53
+          },
+          {
+            "time": "2026-04-01 10:30",
+            "label": "2B",
+            "value": 38.41
+          },
+          {
+            "time": "2026-04-17 10:30",
+            "label": "1S",
+            "value": 51.47
+          },
+          {
+            "time": "2026-06-05 10:00",
+            "label": "1B",
+            "value": 41.36
+          },
+          {
+            "time": "2026-06-08 15:00",
+            "label": "2B",
+            "value": 42.46
+          }
+        ]
+      },
+      "projection_5m": {
+        "period": "5m",
+        "bars": 6,
+        "last_close": 48.81,
+        "last_dif": -0.21161809676608812,
+        "last_macd": -0.07681569904964253,
+        "zd": 50.15,
+        "zg": 51.03,
+        "thresholds": {
+          "flat_close_for_macd_improve": 48.6694272000012,
+          "next_close_for_dif_above_last_bottom": 49.81509552000144,
+          "next_close_for_dif_above_prev_bottom": 49.297319040001334
+        },
+        "scenarios": {
+          "hold_current": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 48.81,
+                "dif": -0.21633905584025115,
+                "macd": -0.06900609375837485,
+                "negative_area": 0.06900609375837485,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 3,
+                "close": 49.346000000000004,
+                "dif": -0.15679519210785742,
+                "macd": 0.04465970192957702,
+                "negative_area": 0.0919780685806097,
+                "positive_area": 0.04465970192957702
+              },
+              {
+                "bar": 6,
+                "close": 50.15,
+                "dif": 0.03476749611090213,
+                "macd": 0.2774800204291192,
+                "negative_area": 0.0919780685806097,
+                "positive_area": 0.6458799336814848
+              }
+            ],
+            "final": {
+              "bar": 6,
+              "close": 50.15,
+              "dif": 0.03476749611090213,
+              "macd": 0.2774800204291192,
+              "negative_area": 0.0919780685806097,
+              "positive_area": 0.6458799336814848
+            }
+          },
+          "pullback_or_shallow_break": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 48.7024,
+                "dif": -0.22492253162373288,
+                "macd": -0.08273965501194563,
+                "negative_area": 0.08273965501194563,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 3,
+                "close": 49.474999999999994,
+                "dif": -0.16864558167462462,
+                "macd": 0.03711365360834612,
+                "negative_area": 0.14905094350859255,
+                "positive_area": 0.03711365360834612
+              },
+              {
+                "bar": 6,
+                "close": 50.15,
+                "dif": 0.07216838732598774,
+                "macd": 0.32145029835344224,
+                "negative_area": 0.14905094350859255,
+                "positive_area": 0.8262788266328602
+              }
+            ],
+            "final": {
+              "bar": 6,
+              "close": 50.15,
+              "dif": 0.07216838732598774,
+              "macd": 0.32145029835344224,
+              "negative_area": 0.14905094350859255,
+              "positive_area": 0.8262788266328602
+            }
+          },
+          "repair_to_resistance": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 48.81,
+                "dif": -0.21633905584025115,
+                "macd": -0.06900609375837485,
+                "negative_area": 0.06900609375837485,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 3,
+                "close": 49.698,
+                "dif": -0.11787550801438584,
+                "macd": 0.1024384329463694,
+                "negative_area": 0.06951425091679875,
+                "positive_area": 0.1024384329463694
+              },
+              {
+                "bar": 6,
+                "close": 51.03,
+                "dif": 0.1893614007959883,
+                "macd": 0.46055617155500916,
+                "negative_area": 0.06951425091679875,
+                "positive_area": 1.1278627489948034
+              }
+            ],
+            "final": {
+              "bar": 6,
+              "close": 51.03,
+              "dif": 0.1893614007959883,
+              "macd": 0.46055617155500916,
+              "negative_area": 0.06951425091679875,
+              "positive_area": 1.1278627489948034
+            }
+          },
+          "continue_down": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 48.81,
+                "dif": -0.21633905584025115,
+                "macd": -0.06900609375837485,
+                "negative_area": 0.06900609375837485,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 3,
+                "close": 48.2204,
+                "dif": -0.28124972737949605,
+                "macd": -0.14010092202641067,
+                "negative_area": 0.3039121530001907,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 6,
+                "close": 47.336,
+                "dif": -0.459581649098034,
+                "macd": -0.3079475810121105,
+                "negative_area": 1.059180890805695,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 6,
+              "close": 47.336,
+              "dif": -0.459581649098034,
+              "macd": -0.3079475810121105,
+              "negative_area": 1.059180890805695,
+              "positive_area": 0.0
+            }
+          }
+        }
+      },
+      "projection_30m": {
+        "period": "30m",
+        "bars": 2,
+        "last_close": 48.81,
+        "last_dif": -0.07422022125751937,
+        "last_macd": -0.6586672270514867,
+        "zd": 41.6,
+        "zg": 44.09,
+        "thresholds": {
+          "flat_close_for_macd_improve": 48.47028240000116,
+          "next_close_for_dif_above_last_bottom": null,
+          "next_close_for_dif_above_prev_bottom": 47.78616144000102
+        },
+        "scenarios": {
+          "hold_current": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 48.81,
+                "dif": -0.14186021041185626,
+                "macd": -0.6351577642881284,
+                "negative_area": 0.6351577642881284,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 1,
+                "close": 48.81,
+                "dif": -0.14186021041185626,
+                "macd": -0.6351577642881284,
+                "negative_area": 0.6351577642881284,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 2,
+                "close": 48.81,
+                "dif": -0.19323786333435322,
+                "macd": -0.5903304561064979,
+                "negative_area": 1.2254882203946265,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 2,
+              "close": 48.81,
+              "dif": -0.19323786333435322,
+              "macd": -0.5903304561064979,
+              "negative_area": 1.2254882203946265,
+              "positive_area": 0.0
+            }
+          },
+          "pullback_or_shallow_break": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 48.81,
+                "dif": -0.14186021041185626,
+                "macd": -0.6351577642881284,
+                "negative_area": 0.6351577642881284,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 1,
+                "close": 48.81,
+                "dif": -0.14186021041185626,
+                "macd": -0.6351577642881284,
+                "negative_area": 0.6351577642881284,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 2,
+                "close": 44.09,
+                "dif": -0.5697620798585703,
+                "macd": -1.1927692025452452,
+                "negative_area": 1.8279269668333735,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 2,
+              "close": 44.09,
+              "dif": -0.5697620798585703,
+              "macd": -1.1927692025452452,
+              "negative_area": 1.8279269668333735,
+              "positive_area": 0.0
+            }
+          },
+          "repair_to_resistance": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 48.81,
+                "dif": -0.14186021041185626,
+                "macd": -0.6351577642881284,
+                "negative_area": 0.6351577642881284,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 1,
+                "close": 48.81,
+                "dif": -0.14186021041185626,
+                "macd": -0.6351577642881284,
+                "negative_area": 0.6351577642881284,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 2,
+                "close": 50.55,
+                "dif": -0.05443444453093349,
+                "macd": -0.3682449860210263,
+                "negative_area": 1.0034027503091547,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 2,
+              "close": 50.55,
+              "dif": -0.05443444453093349,
+              "macd": -0.3682449860210263,
+              "negative_area": 1.0034027503091547,
+              "positive_area": 0.0
+            }
+          },
+          "continue_down": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 48.81,
+                "dif": -0.14186021041185626,
+                "macd": -0.6351577642881284,
+                "negative_area": 0.6351577642881284,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 1,
+                "close": 48.81,
+                "dif": -0.14186021041185626,
+                "macd": -0.6351577642881284,
+                "negative_area": 0.6351577642881284,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 2,
+                "close": 41.6,
+                "dif": -0.7683945584910461,
+                "macd": -1.5105811683572066,
+                "negative_area": 2.145738932645335,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 2,
+              "close": 41.6,
+              "dif": -0.7683945584910461,
+              "macd": -1.5105811683572066,
+              "negative_area": 2.145738932645335,
+              "positive_area": 0.0
+            }
+          }
+        }
+      },
+      "execution": {
+        "cooling_protocol": "09:30-10:00 no blind buy",
+        "vwap": 49.41918621660925,
+        "vwap_source": "volume_typical_price",
+        "vwap_dev_pct": -1.2326917200520482,
+        "first30_vwap_max_dev_pct": 0.3994463103148549,
+        "first30_vwap_min_dev_pct": -0.7726417629669524,
+        "post10_vwap_broken": true,
+        "induced_chase_risk": false,
+        "panic_flush": false,
+        "day": {
+          "date": "2026-06-16",
+          "open": 50.52,
+          "high": 50.55,
+          "low": 48.8,
+          "close": 48.81,
+          "last_time": "2026-06-16 15:00",
+          "first30_high": 50.55,
+          "first30_low": 48.8,
+          "first30_close": 49.48,
+          "post10_high": 50.5,
+          "post10_low": 48.8,
+          "vwap": 49.41918621660925,
+          "vwap_source": "volume_typical_price",
+          "vwap_dev_pct": -1.2326917200520482,
+          "first30_vwap_max_dev_pct": 0.3994463103148549,
+          "first30_vwap_min_dev_pct": -0.7726417629669524,
+          "post10_vwap_broken": true
+        }
+      },
+      "relative_strength": {
+        "class": "cycle_misaligned_pulse",
+        "downside_capture": 1.4863780750822975,
+        "corr": 0.3117125423335072,
+        "risk_windows": 144,
+        "avg_index_drop_pct": -0.21260121936521034,
+        "avg_stock_move_pct": -0.31600579120021055
+      },
+      "recent_signals": [
+        {
+          "time": "2026-06-05 09:55",
+          "label": "1B",
+          "price": 41.36,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-06-09 14:10",
+          "label": "2B",
+          "price": 44.37,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-06-10 11:00",
+          "label": "3B",
+          "price": 47.1,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-06-11 13:55",
+          "label": "3B",
+          "price": 50.37,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-06-15 15:00",
+          "label": "1S",
+          "price": 51.66,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-05-20 14:00",
+          "label": "3S",
+          "price": 52.9,
+          "level": "30m",
+          "status": null
+        },
+        {
+          "time": "2026-06-05 10:00",
+          "label": "1B",
+          "price": 41.36,
+          "level": "30m",
+          "status": null
+        },
+        {
+          "time": "2026-06-08 15:00",
+          "label": "2B",
+          "price": 42.46,
+          "level": "30m",
+          "status": null
+        }
+      ],
+      "position": {
+        "name": "盛新锂能",
+        "shares": null,
+        "available_shares": null,
+        "market_value": null,
+        "cost": null,
+        "last_price": null,
+        "position_pct": null,
+        "profit_pct": null,
+        "profit": null,
+        "hard_stop": null,
+        "plan_note": "锂矿/锂盐观察标的，今日跌回5m中枢下方，除非重新收回结构位，否则只观察不补仓。",
+        "role": "新增跟踪",
+        "analyze": true
+      },
+      "theme_attribution": {
+        "code": "002240",
+        "name": "盛新锂能",
+        "industry": "锂",
+        "market_themes": [
+          "锂矿 / 锂盐 / 电池材料"
+        ],
+        "confidence": "中高",
+        "reading": "资源品事件驱动和价格预期修复并存，强势日不追一致，优先等分歧后的承接。",
+        "pct": -5.46,
+        "boards": null,
+        "streak": -1.0,
+        "amount_100m": 41.488734,
+        "main_net_100m": -4.102405999999999,
+        "open_pct": -2.15,
+        "prev_pct": 1.08
+      }
+    },
+    {
+      "symbol": "sh600487",
+      "day": {
+        "date": "2026-06-16",
+        "open": 98.21,
+        "high": 108.66,
+        "low": 98.18,
+        "close": 107.5,
+        "last_time": "2026-06-16 15:00",
+        "first30_high": 108.0,
+        "first30_low": 98.18,
+        "first30_close": 107.0,
+        "post10_high": 108.66,
+        "post10_low": 104.23,
+        "vwap": 105.29436361016975,
+        "vwap_source": "volume_typical_price",
+        "vwap_dev_pct": 2.0947335775693965,
+        "first30_vwap_max_dev_pct": 3.1024446339819933,
+        "first30_vwap_min_dev_pct": 1.1951267960008005,
+        "post10_vwap_broken": true
+      },
+      "current": {
+        "price": 107.5,
+        "state": "inside_active_bi_zs",
+        "active_zs": {
+          "start": "2026-06-16 11:10",
+          "end": "2026-06-16 14:30",
+          "ZD": 105.52,
+          "ZG": 107.98,
+          "bi_count": null
+        }
+      },
+      "summary": {
+        "bars": 1440,
+        "analysis_bars": 2133,
+        "bis": 153,
+        "zs": 27,
+        "signals": 7,
+        "candidates": 1,
+        "total_signals": 38,
+        "engine": "classic",
+        "app_version": "V10.20-0603-1715",
+        "sensitivity": "balanced",
+        "promoted_sm_count": 0,
+        "default_start_date": "2026-05-06",
+        "default_trading_days": 30,
+        "analysis_start": "2026-04-10 13:20",
+        "analysis_end": "2026-06-16 15:00",
+        "view_start": "2026-05-06 09:35",
+        "view_end": "2026-06-16 15:00",
+        "first_time": "2026-05-06 09:35",
+        "last_time": "2026-06-16 15:00"
+      },
+      "geometry_5m": {
+        "center": {
+          "start": "2026-06-16 11:10",
+          "end": "2026-06-16 14:30",
+          "ZD": 105.52,
+          "ZG": 107.98
+        },
+        "active_center_fractal_count": 4,
+        "nine_bi_lifecycle_warning": false,
+        "last_bottom": {
+          "time": "2026-06-16 13:45",
+          "type": "Bottom",
+          "value": 104.23,
+          "dif": 0.3048455069156688,
+          "macd": -0.8566641595206366
+        },
+        "prev_bottom": {
+          "time": "2026-06-16 11:10",
+          "type": "Bottom",
+          "value": 105.52,
+          "dif": 1.5056261897931762,
+          "macd": -0.6893425248705425
+        },
+        "last_top": {
+          "time": "2026-06-16 14:30",
+          "type": "Top",
+          "value": 107.2,
+          "dif": 0.26980691297964654,
+          "macd": -0.06131749930448693
+        },
+        "prev_top": {
+          "time": "2026-06-16 13:15",
+          "type": "Top",
+          "value": 107.98,
+          "dif": 1.0277909532844092,
+          "macd": -0.5005793155215663
+        },
+        "down_area": {
+          "previous": 1.9363615638083327,
+          "current": 4.8598035104752135,
+          "ratio": 2.5097603677472358,
+          "bottom_divergence": false,
+          "quantum_trap": false
+        },
+        "up_area": {
+          "previous": 0.0001,
+          "current": 0.0001,
+          "ratio": 1.0,
+          "top_divergence": false,
+          "quantum_trap": false
+        }
+      },
+      "state_30m": {
+        "last_time": "2026-06-16 15:00",
+        "close": 107.5,
+        "dif": 1.7602257524781493,
+        "dea": 0.9815554108036676,
+        "macd": 1.5573406833489634,
+        "dif_slope_12": 0.29892245929333394,
+        "recent_signals": [
+          {
+            "time": "2026-04-30 10:00",
+            "label": "2S",
+            "value": 68.0
+          },
+          {
+            "time": "2026-05-19 10:30",
+            "label": "1B",
+            "value": 66.52
+          },
+          {
+            "time": "2026-05-21 15:00",
+            "label": "2B",
+            "value": 69.38
+          },
+          {
+            "time": "2026-06-10 10:00",
+            "label": "1S",
+            "value": 109.99
+          },
+          {
+            "time": "2026-06-16 11:00",
+            "label": "2S",
+            "value": 108.66
+          }
+        ]
+      },
+      "projection_5m": {
+        "period": "5m",
+        "bars": 6,
+        "last_close": 107.5,
+        "last_dif": 0.3185042057360903,
+        "last_macd": 0.12867834954293444,
+        "zd": 105.52,
+        "zg": 107.98,
+        "thresholds": {
+          "flat_close_for_macd_improve": 107.08204000000872,
+          "next_close_for_dif_above_last_bottom": 106.58152000000837,
+          "next_close_for_dif_above_prev_bottom": null
+        },
+        "scenarios": {
+          "hold_current": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 107.5,
+                "dif": 0.3784234772232935,
+                "macd": 0.1988135140138727,
+                "negative_area": 0.0,
+                "positive_area": 0.1988135140138727
+              },
+              {
+                "bar": 3,
+                "close": 106.708,
+                "dif": 0.3620903566685314,
+                "macd": 0.09757388445724813,
+                "negative_area": 0.0,
+                "positive_area": 0.4731070678022741
+              },
+              {
+                "bar": 6,
+                "close": 105.52,
+                "dif": 0.12835718444914335,
+                "macd": -0.2655358033918953,
+                "negative_area": 0.4174266263585308,
+                "positive_area": 0.4731070678022741
+              }
+            ],
+            "final": {
+              "bar": 6,
+              "close": 105.52,
+              "dif": 0.12835718444914335,
+              "macd": -0.2655358033918953,
+              "negative_area": 0.4174266263585308,
+              "positive_area": 0.4731070678022741
+            }
+          },
+          "pullback_or_shallow_break": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 97.98364000000001,
+                "dif": -0.38071635183653996,
+                "macd": -1.0158102124818609,
+                "negative_area": 1.0158102124818609,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 3,
+                "close": 101.85,
+                "dif": -1.0189527506600058,
+                "macd": -1.502394476282462,
+                "negative_area": 4.175364347867183,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 6,
+                "close": 105.52,
+                "dif": -0.473297092386332,
+                "macd": -0.07921133223860977,
+                "negative_area": 5.502851657853202,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 6,
+              "close": 105.52,
+              "dif": -0.473297092386332,
+              "macd": -0.07921133223860977,
+              "negative_area": 5.502851657853202,
+              "positive_area": 0.0
+            }
+          },
+          "repair_to_resistance": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 107.5,
+                "dif": 0.3784234772232935,
+                "macd": 0.1988135140138727,
+                "negative_area": 0.0,
+                "positive_area": 0.1988135140138727
+              },
+              {
+                "bar": 3,
+                "close": 107.69200000000001,
+                "dif": 0.47088856447528826,
+                "macd": 0.2590917007087421,
+                "negative_area": 0.0,
+                "positive_area": 0.6974214652503532
+              },
+              {
+                "bar": 6,
+                "close": 107.98,
+                "dif": 0.5605174180006571,
+                "macd": 0.2462452554373148,
+                "negative_area": 0.0,
+                "positive_area": 1.4658380745390138
+              }
+            ],
+            "final": {
+              "bar": 6,
+              "close": 107.98,
+              "dif": 0.5605174180006571,
+              "macd": 0.2462452554373148,
+              "negative_area": 0.0,
+              "positive_area": 1.4658380745390138
+            }
+          },
+          "continue_down": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 107.5,
+                "dif": 0.3784234772232935,
+                "macd": 0.1988135140138727,
+                "negative_area": 0.0,
+                "positive_area": 0.1988135140138727
+              },
+              {
+                "bar": 3,
+                "close": 102.59384,
+                "dif": -0.09280114193943234,
+                "macd": -0.5777412973610796,
+                "negative_area": 0.6635777078019972,
+                "positive_area": 0.1988135140138727
+              },
+              {
+                "bar": 6,
+                "close": 95.2346,
+                "dif": -1.6785293465145799,
+                "macd": -2.4053215361081786,
+                "negative_area": 6.039082389414782,
+                "positive_area": 0.1988135140138727
+              }
+            ],
+            "final": {
+              "bar": 6,
+              "close": 95.2346,
+              "dif": -1.6785293465145799,
+              "macd": -2.4053215361081786,
+              "negative_area": 6.039082389414782,
+              "positive_area": 0.1988135140138727
+            }
+          }
+        }
+      },
+      "projection_30m": {
+        "period": "30m",
+        "bars": 2,
+        "last_close": 107.5,
+        "last_dif": 1.7602257524781493,
+        "last_macd": 1.5573406833489634,
+        "zd": 92.55,
+        "zg": 102.96,
+        "thresholds": {
+          "flat_close_for_macd_improve": 109.2028000000102,
+          "next_close_for_dif_above_last_bottom": 94.6,
+          "next_close_for_dif_above_prev_bottom": 119.17708000001717
+        },
+        "scenarios": {
+          "hold_current": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 107.5,
+                "dif": 1.8601104678258338,
+                "macd": 1.405688091235466,
+                "negative_area": 0.0,
+                "positive_area": 1.405688091235466
+              },
+              {
+                "bar": 1,
+                "close": 107.5,
+                "dif": 1.8601104678258338,
+                "macd": 1.405688091235466,
+                "negative_area": 0.0,
+                "positive_area": 1.405688091235466
+              },
+              {
+                "bar": 2,
+                "close": 107.5,
+                "dif": 1.9171698833509367,
+                "macd": 1.2158455378285375,
+                "negative_area": 0.0,
+                "positive_area": 2.6215336290640034
+              }
+            ],
+            "final": {
+              "bar": 2,
+              "close": 107.5,
+              "dif": 1.9171698833509367,
+              "macd": 1.2158455378285375,
+              "negative_area": 0.0,
+              "positive_area": 2.6215336290640034
+            }
+          },
+          "pullback_or_shallow_break": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 107.5,
+                "dif": 1.8601104678258338,
+                "macd": 1.405688091235466,
+                "negative_area": 0.0,
+                "positive_area": 1.405688091235466
+              },
+              {
+                "bar": 1,
+                "close": 107.5,
+                "dif": 1.8601104678258338,
+                "macd": 1.405688091235466,
+                "negative_area": 0.0,
+                "positive_area": 1.405688091235466
+              },
+              {
+                "bar": 2,
+                "close": 102.96,
+                "dif": 1.5550046411856897,
+                "macd": 0.6363811503641421,
+                "negative_area": 0.0,
+                "positive_area": 2.042069241599608
+              }
+            ],
+            "final": {
+              "bar": 2,
+              "close": 102.96,
+              "dif": 1.5550046411856897,
+              "macd": 0.6363811503641421,
+              "negative_area": 0.0,
+              "positive_area": 2.042069241599608
+            }
+          },
+          "repair_to_resistance": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 107.5,
+                "dif": 1.8601104678258338,
+                "macd": 1.405688091235466,
+                "negative_area": 0.0,
+                "positive_area": 1.405688091235466
+              },
+              {
+                "bar": 1,
+                "close": 107.5,
+                "dif": 1.8601104678258338,
+                "macd": 1.405688091235466,
+                "negative_area": 0.0,
+                "positive_area": 1.405688091235466
+              },
+              {
+                "bar": 2,
+                "close": 108.66,
+                "dif": 2.0097054958865357,
+                "macd": 1.3639025178854958,
+                "negative_area": 0.0,
+                "positive_area": 2.7695906091209617
+              }
+            ],
+            "final": {
+              "bar": 2,
+              "close": 108.66,
+              "dif": 2.0097054958865357,
+              "macd": 1.3639025178854958,
+              "negative_area": 0.0,
+              "positive_area": 2.7695906091209617
+            }
+          },
+          "continue_down": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 107.5,
+                "dif": 1.8601104678258338,
+                "macd": 1.405688091235466,
+                "negative_area": 0.0,
+                "positive_area": 1.405688091235466
+              },
+              {
+                "bar": 1,
+                "close": 107.5,
+                "dif": 1.8601104678258338,
+                "macd": 1.405688091235466,
+                "negative_area": 0.0,
+                "positive_area": 1.405688091235466
+              },
+              {
+                "bar": 2,
+                "close": 92.55,
+                "dif": 0.7245772907583472,
+                "macd": -0.6923026103196057,
+                "negative_area": 0.6923026103196057,
+                "positive_area": 1.405688091235466
+              }
+            ],
+            "final": {
+              "bar": 2,
+              "close": 92.55,
+              "dif": 0.7245772907583472,
+              "macd": -0.6923026103196057,
+              "negative_area": 0.6923026103196057,
+              "positive_area": 1.405688091235466
+            }
+          }
+        }
+      },
+      "execution": {
+        "cooling_protocol": "09:30-10:00 no blind buy",
+        "vwap": 105.29436361016975,
+        "vwap_source": "volume_typical_price",
+        "vwap_dev_pct": 2.0947335775693965,
+        "first30_vwap_max_dev_pct": 3.1024446339819933,
+        "first30_vwap_min_dev_pct": 1.1951267960008005,
+        "post10_vwap_broken": true,
+        "induced_chase_risk": true,
+        "panic_flush": false,
+        "day": {
+          "date": "2026-06-16",
+          "open": 98.21,
+          "high": 108.66,
+          "low": 98.18,
+          "close": 107.5,
+          "last_time": "2026-06-16 15:00",
+          "first30_high": 108.0,
+          "first30_low": 98.18,
+          "first30_close": 107.0,
+          "post10_high": 108.66,
+          "post10_low": 104.23,
+          "vwap": 105.29436361016975,
+          "vwap_source": "volume_typical_price",
+          "vwap_dev_pct": 2.0947335775693965,
+          "first30_vwap_max_dev_pct": 3.1024446339819933,
+          "first30_vwap_min_dev_pct": 1.1951267960008005,
+          "post10_vwap_broken": true
+        }
+      },
+      "relative_strength": {
+        "class": "cycle_misaligned_pulse",
+        "downside_capture": 1.6330298130275829,
+        "corr": 0.24709672630236135,
+        "risk_windows": 144,
+        "avg_index_drop_pct": -0.21260121936521034,
+        "avg_stock_move_pct": -0.3471841295094056
+      },
+      "recent_signals": [
+        {
+          "time": "2026-06-08 13:50",
+          "label": "3B",
+          "price": 94.44,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-06-15 09:40",
+          "label": "1B",
+          "price": 92.88,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-06-15 10:50",
+          "label": "2B",
+          "price": 95.58,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-06-16 09:35",
+          "label": "1B",
+          "price": 98.18,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-06-16 11:10",
+          "label": "2B",
+          "price": 105.52,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-06-08 10:00",
+          "label": "3B",
+          "price": 92.55,
+          "level": "30m",
+          "status": null
+        },
+        {
+          "time": "2026-06-10 10:00",
+          "label": "1S",
+          "price": 109.99,
+          "level": "30m",
+          "status": null
+        },
+        {
+          "time": "2026-06-16 11:00",
+          "label": "2S",
+          "price": 108.66,
+          "level": "30m",
+          "status": null
+        }
+      ],
+      "position": {
+        "name": "亨通光电",
+        "shares": null,
+        "available_shares": null,
+        "market_value": null,
+        "cost": null,
+        "last_price": null,
+        "position_pct": null,
+        "profit_pct": null,
+        "profit": null,
+        "hard_stop": null,
+        "plan_note": "光纤光缆/光通信核心容量标的，今日强势但已明显加速，重点看新高附近承接，不追高开一致。",
+        "role": "新增跟踪",
+        "analyze": true
+      },
+      "theme_attribution": {
+        "code": "600487",
+        "name": "亨通光电",
+        "industry": "光纤光缆",
+        "market_themes": [
+          "光通信 / CPO / 6G / AI硬件链"
+        ],
+        "confidence": "中高",
+        "reading": "仍在科技主线池，优先看容量核心和趋势承接，不把分支轮动当成全线主升。",
+        "pct": 8.28,
+        "boards": null,
+        "streak": 2.0,
+        "amount_100m": 237.699325,
+        "main_net_100m": 15.136686,
+        "open_pct": -1.08,
+        "prev_pct": 2.35
+      }
+    },
+    {
+      "symbol": "sh588710",
+      "day": {
+        "date": "2026-06-16",
+        "open": 2.897,
+        "high": 2.958,
+        "low": 2.869,
+        "close": 2.917,
+        "last_time": "2026-06-16 15:00",
+        "first30_high": 2.94,
+        "first30_low": 2.88,
+        "first30_close": 2.885,
+        "post10_high": 2.958,
+        "post10_low": 2.869,
+        "vwap": 2.90713278352077,
+        "vwap_source": "volume_typical_price",
+        "vwap_dev_pct": 0.33941402797845743,
+        "first30_vwap_max_dev_pct": 0.17284887274464644,
+        "first30_vwap_min_dev_pct": -0.6044440487138925,
+        "post10_vwap_broken": true
+      },
+      "current": {
+        "price": 2.917,
+        "state": "inside_active_bi_zs",
+        "active_zs": {
+          "start": "2026-06-16 10:05",
+          "end": "2026-06-16 14:50",
+          "ZD": 2.886,
+          "ZG": 2.918,
+          "bi_count": null
+        }
+      },
+      "summary": {
+        "bars": 1440,
+        "analysis_bars": 2066,
+        "bis": 157,
+        "zs": 28,
+        "signals": 12,
+        "candidates": 1,
+        "total_signals": 32,
+        "engine": "classic",
+        "app_version": "V10.20-0603-1715",
+        "sensitivity": "balanced",
+        "promoted_sm_count": 0,
+        "default_start_date": "2026-05-06",
+        "default_trading_days": 30,
+        "analysis_start": "2026-04-13 14:55",
+        "analysis_end": "2026-06-16 15:00",
+        "view_start": "2026-05-06 09:35",
+        "view_end": "2026-06-16 15:00",
+        "first_time": "2026-05-06 09:35",
+        "last_time": "2026-06-16 15:00"
+      },
+      "geometry_5m": {
+        "center": {
+          "start": "2026-06-16 10:05",
+          "end": "2026-06-16 14:50",
+          "ZD": 2.886,
+          "ZG": 2.918
+        },
+        "active_center_fractal_count": 5,
+        "nine_bi_lifecycle_warning": false,
+        "last_bottom": {
+          "time": "2026-06-16 14:50",
+          "type": "Bottom",
+          "value": 2.897,
+          "dif": 0.006040934264632369,
+          "macd": -0.005721427420650842
+        },
+        "prev_bottom": {
+          "time": "2026-06-16 11:10",
+          "type": "Bottom",
+          "value": 2.886,
+          "dif": 0.007089671947453802,
+          "macd": -0.006396671854710521
+        },
+        "last_top": {
+          "time": "2026-06-16 14:25",
+          "type": "Top",
+          "value": 2.958,
+          "dif": 0.013470338517372227,
+          "macd": 0.009896188878696435
+        },
+        "prev_top": {
+          "time": "2026-06-16 10:40",
+          "type": "Top",
+          "value": 2.918,
+          "dif": 0.013433586134137698,
+          "macd": -0.0008344260852973864
+        },
+        "down_area": {
+          "previous": 0.029336756501116078,
+          "current": 0.010517063061682794,
+          "ratio": 0.3584944048358818,
+          "bottom_divergence": false,
+          "quantum_trap": false
+        },
+        "up_area": {
+          "previous": 0.0001,
+          "current": 0.030705257694452502,
+          "ratio": 307.052576944525,
+          "top_divergence": false,
+          "quantum_trap": false
+        }
+      },
+      "state_30m": {
+        "last_time": "2026-06-16 15:00",
+        "close": 2.917,
+        "dif": 0.04757599843757898,
+        "dea": 0.04684617591216591,
+        "macd": 0.0014596450508261444,
+        "dif_slope_12": 0.0005765976805437149,
+        "recent_signals": [
+          {
+            "time": "2026-04-13 15:00",
+            "label": "2B",
+            "value": 1.747
+          },
+          {
+            "time": "2026-04-15 11:00",
+            "label": "1S",
+            "value": 1.841
+          },
+          {
+            "time": "2026-04-20 15:00",
+            "label": "2S",
+            "value": 1.829
+          },
+          {
+            "time": "2026-05-06 10:30",
+            "label": "1S",
+            "value": 2.174
+          },
+          {
+            "time": "2026-05-07 15:00",
+            "label": "2S",
+            "value": 2.122
+          }
+        ]
+      },
+      "projection_5m": {
+        "period": "5m",
+        "bars": 6,
+        "last_close": 2.917,
+        "last_dif": 0.004262153846842143,
+        "last_macd": -0.006126958004389064,
+        "zd": 2.886,
+        "zg": 2.918,
+        "thresholds": {
+          "flat_close_for_macd_improve": 2.9115393760000505,
+          "next_close_for_dif_above_last_bottom": 2.9457032800000555,
+          "next_close_for_dif_above_prev_bottom": 2.9588647840000575
+        },
+        "scenarios": {
+          "hold_current": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 2.917,
+                "dif": 0.0037522974095716144,
+                "macd": -0.005717336703144097,
+                "negative_area": 0.005717336703144097,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 3,
+                "close": 2.9046,
+                "dif": 0.0015548502694247013,
+                "macd": -0.006875232261358152,
+                "negative_area": 0.018665331591463184,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 6,
+                "close": 2.886,
+                "dif": -0.0034004561909357633,
+                "macd": -0.010050084574032517,
+                "negative_area": 0.04560837402364944,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 6,
+              "close": 2.886,
+              "dif": -0.0034004561909357633,
+              "macd": -0.010050084574032517,
+              "negative_area": 0.04560837402364944,
+              "positive_area": 0.0
+            }
+          },
+          "pullback_or_shallow_break": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 2.863262,
+                "dif": -0.0005344946132206374,
+                "macd": -0.012576203939611699,
+                "negative_area": 0.012576203939611699,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 3,
+                "close": 2.8775000000000004,
+                "dif": -0.005687987345090573,
+                "macd": -0.015240203817184949,
+                "negative_area": 0.043148146284278176,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 6,
+                "close": 2.886,
+                "dif": -0.007190579054296098,
+                "macd": -0.009640368884753888,
+                "negative_area": 0.07756821968764663,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 6,
+              "close": 2.886,
+              "dif": -0.007190579054296098,
+              "macd": -0.009640368884753888,
+              "negative_area": 0.07756821968764663,
+              "positive_area": 0.0
+            }
+          },
+          "repair_to_resistance": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 2.917,
+                "dif": 0.0037522974095716144,
+                "macd": -0.005717336703144097,
+                "negative_area": 0.005717336703144097,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 3,
+                "close": 2.9173999999999998,
+                "dif": 0.0029701115091875785,
+                "macd": -0.004774187497110833,
+                "negative_area": 0.015747420730349442,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 6,
+                "close": 2.918,
+                "dif": 0.0022211403430678622,
+                "macd": -0.0033927699876362544,
+                "negative_area": 0.027264860097205485,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 6,
+              "close": 2.918,
+              "dif": 0.0022211403430678622,
+              "macd": -0.0033927699876362544,
+              "negative_area": 0.027264860097205485,
+              "positive_area": 0.0
+            }
+          },
+          "continue_down": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 2.917,
+                "dif": 0.0037522974095716144,
+                "macd": -0.005717336703144097,
+                "negative_area": 0.005717336703144097,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 3,
+                "close": 2.863372,
+                "dif": -0.0030036177300232225,
+                "macd": -0.01364256613169991,
+                "negative_area": 0.028063740105679538,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 6,
+                "close": 2.7829300000000003,
+                "dif": -0.021507267277177444,
+                "macd": -0.03149287877465358,
+                "negative_area": 0.1046916859110986,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 6,
+              "close": 2.7829300000000003,
+              "dif": -0.021507267277177444,
+              "macd": -0.03149287877465358,
+              "negative_area": 0.1046916859110986,
+              "positive_area": 0.0
+            }
+          }
+        }
+      },
+      "projection_30m": {
+        "period": "30m",
+        "bars": 2,
+        "last_close": 2.917,
+        "last_dif": 0.04757599843757898,
+        "last_macd": 0.0014596450508261444,
+        "zd": 2.623,
+        "zg": 2.738,
+        "thresholds": {
+          "flat_close_for_macd_improve": 2.942062864000055,
+          "next_close_for_dif_above_last_bottom": 2.8299100480000385,
+          "next_close_for_dif_above_prev_bottom": 2.880455824000046
+        },
+        "scenarios": {
+          "hold_current": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 2.917,
+                "dif": 0.04613951686190987,
+                "macd": -0.0011306544804096652,
+                "negative_area": 0.0011306544804096652,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 1,
+                "close": 2.917,
+                "dif": 0.04613951686190987,
+                "macd": -0.0011306544804096652,
+                "negative_area": 0.0011306544804096652,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 2,
+                "close": 2.917,
+                "dif": 0.044488261873999235,
+                "macd": -0.003546531564984745,
+                "negative_area": 0.00467718604539441,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 2,
+              "close": 2.917,
+              "dif": 0.044488261873999235,
+              "macd": -0.003546531564984745,
+              "negative_area": 0.00467718604539441,
+              "positive_area": 0.0
+            }
+          },
+          "pullback_or_shallow_break": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 2.917,
+                "dif": 0.04613951686190987,
+                "macd": -0.0011306544804096652,
+                "negative_area": 0.0011306544804096652,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 1,
+                "close": 2.917,
+                "dif": 0.04613951686190987,
+                "macd": -0.0011306544804096652,
+                "negative_area": 0.0011306544804096652,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 2,
+                "close": 2.738,
+                "dif": 0.030209059594796805,
+                "macd": -0.026393255211708627,
+                "negative_area": 0.027523909692118292,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 2,
+              "close": 2.738,
+              "dif": 0.030209059594796805,
+              "macd": -0.026393255211708627,
+              "negative_area": 0.027523909692118292,
+              "positive_area": 0.0
+            }
+          },
+          "repair_to_resistance": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 2.917,
+                "dif": 0.04613951686190987,
+                "macd": -0.0011306544804096652,
+                "negative_area": 0.0011306544804096652,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 1,
+                "close": 2.917,
+                "dif": 0.04613951686190987,
+                "macd": -0.0011306544804096652,
+                "negative_area": 0.0011306544804096652,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 2,
+                "close": 2.958,
+                "dif": 0.04775891714465441,
+                "macd": 0.0016865168680635367,
+                "negative_area": 0.0011306544804096652,
+                "positive_area": 0.0016865168680635367
+              }
+            ],
+            "final": {
+              "bar": 2,
+              "close": 2.958,
+              "dif": 0.04775891714465441,
+              "macd": 0.0016865168680635367,
+              "negative_area": 0.0011306544804096652,
+              "positive_area": 0.0016865168680635367
+            }
+          },
+          "continue_down": {
+            "checkpoints": [
+              {
+                "bar": 1,
+                "close": 2.917,
+                "dif": 0.04613951686190987,
+                "macd": -0.0011306544804096652,
+                "negative_area": 0.0011306544804096652,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 1,
+                "close": 2.917,
+                "dif": 0.04613951686190987,
+                "macd": -0.0011306544804096652,
+                "negative_area": 0.0011306544804096652,
+                "positive_area": 0.0
+              },
+              {
+                "bar": 2,
+                "close": 2.623,
+                "dif": 0.021035270421007723,
+                "macd": -0.04107131788977117,
+                "negative_area": 0.042201972370180835,
+                "positive_area": 0.0
+              }
+            ],
+            "final": {
+              "bar": 2,
+              "close": 2.623,
+              "dif": 0.021035270421007723,
+              "macd": -0.04107131788977117,
+              "negative_area": 0.042201972370180835,
+              "positive_area": 0.0
+            }
+          }
+        }
+      },
+      "execution": {
+        "cooling_protocol": "09:30-10:00 no blind buy",
+        "vwap": 2.90713278352077,
+        "vwap_source": "volume_typical_price",
+        "vwap_dev_pct": 0.33941402797845743,
+        "first30_vwap_max_dev_pct": 0.17284887274464644,
+        "first30_vwap_min_dev_pct": -0.6044440487138925,
+        "post10_vwap_broken": true,
+        "induced_chase_risk": false,
+        "panic_flush": false,
+        "day": {
+          "date": "2026-06-16",
+          "open": 2.897,
+          "high": 2.958,
+          "low": 2.869,
+          "close": 2.917,
+          "last_time": "2026-06-16 15:00",
+          "first30_high": 2.94,
+          "first30_low": 2.88,
+          "first30_close": 2.885,
+          "post10_high": 2.958,
+          "post10_low": 2.869,
+          "vwap": 2.90713278352077,
+          "vwap_source": "volume_typical_price",
+          "vwap_dev_pct": 0.33941402797845743,
+          "first30_vwap_max_dev_pct": 0.17284887274464644,
+          "first30_vwap_min_dev_pct": -0.6044440487138925,
+          "post10_vwap_broken": true
+        }
+      },
+      "relative_strength": {
+        "class": "trend_amplifier_beta",
+        "downside_capture": 2.8738560210411035,
+        "corr": 0.5886753388851377,
+        "risk_windows": 144,
+        "avg_index_drop_pct": -0.21260121936521034,
+        "avg_stock_move_pct": -0.6109852943533902
+      },
+      "recent_signals": [
+        {
+          "time": "2026-06-12 14:30",
+          "label": "2S",
+          "price": 2.776,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-06-15 09:40",
+          "label": "1B",
+          "price": 2.668,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-06-15 11:10",
+          "label": "2B",
+          "price": 2.805,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-06-15 14:10",
+          "label": "3B",
+          "price": 2.838,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-06-16 11:10",
+          "label": "3B",
+          "price": 2.886,
+          "level": "5m",
+          "status": null
+        },
+        {
+          "time": "2026-05-08 15:00",
+          "label": "3B",
+          "price": 2.076,
+          "level": "30m",
+          "status": null
+        },
+        {
+          "time": "2026-05-19 10:30",
+          "label": "3B",
+          "price": 2.429,
+          "level": "30m",
+          "status": null
+        },
+        {
+          "time": "2026-06-10 14:00",
+          "label": "3B",
+          "price": 2.623,
+          "level": "30m",
+          "status": null
+        }
+      ],
+      "position": {
+        "name": "科创半导体设备ETF",
+        "shares": null,
+        "available_shares": null,
+        "market_value": null,
+        "cost": null,
+        "last_price": null,
+        "position_pct": null,
+        "profit_pct": null,
+        "profit": null,
+        "hard_stop": null,
+        "plan_note": "半导体设备/材料ETF，用来观察AI上游和半导体设备材料方向的整体弹性，适合替代单票做方向验证。",
+        "role": "新增跟踪",
+        "analyze": true
+      },
+      "theme_attribution": {}
+    }
+  ],
+  "model": {
+    "quantum_buffer": 0.0005,
+    "momentum_threshold": 0.7,
+    "engine": "chanlun_v10_20_core.analyze_frame_original"
+  },
+  "config_path": "D:\\Projects\\Stock Analysis\\02_daily_replay\\plans\\watchlist_config.json",
+  "positions": {
+    "sz002463": {
+      "name": "沪电股份",
+      "shares": null,
+      "available_shares": null,
+      "market_value": null,
+      "cost": null,
+      "last_price": null,
+      "position_pct": null,
+      "profit_pct": null,
+      "profit": null,
+      "hard_stop": null,
+      "plan_note": "PCB/AI硬件链核心容量标的，板块连续强势两天，明日不追加速，重点看VWAP和5m中枢上沿承接。",
+      "role": "趋势观察",
+      "analyze": true
+    },
+    "sz002240": {
+      "name": "盛新锂能",
+      "shares": null,
+      "available_shares": null,
+      "market_value": null,
+      "cost": null,
+      "last_price": null,
+      "position_pct": null,
+      "profit_pct": null,
+      "profit": null,
+      "hard_stop": null,
+      "plan_note": "锂矿/锂盐观察标的，今日跌回5m中枢下方，除非重新收回结构位，否则只观察不补仓。",
+      "role": "新增跟踪",
+      "analyze": true
+    },
+    "sh600487": {
+      "name": "亨通光电",
+      "shares": null,
+      "available_shares": null,
+      "market_value": null,
+      "cost": null,
+      "last_price": null,
+      "position_pct": null,
+      "profit_pct": null,
+      "profit": null,
+      "hard_stop": null,
+      "plan_note": "光纤光缆/光通信核心容量标的，今日强势但已明显加速，重点看新高附近承接，不追高开一致。",
+      "role": "新增跟踪",
+      "analyze": true
+    },
+    "sh588710": {
+      "name": "科创半导体设备ETF",
+      "shares": null,
+      "available_shares": null,
+      "market_value": null,
+      "cost": null,
+      "last_price": null,
+      "position_pct": null,
+      "profit_pct": null,
+      "profit": null,
+      "hard_stop": null,
+      "plan_note": "半导体设备/材料ETF，用来观察AI上游和半导体设备材料方向的整体弹性，适合替代单票做方向验证。",
+      "role": "新增跟踪",
+      "analyze": true
+    }
+  },
+  "account": {},
+  "market_context": {
+    "date": "2026-06-16",
+    "short_term_mood": "全A上涨2623家、下跌2467家，上涨占比约51.5%，中位涨幅+0.07%，主力净额小幅流出；不是普涨日，而是缩量分化下的结构性主升。",
+    "mainline": "今日强势集中在光纤光缆、玻纤制造、锂电设备、锂电池、其他发电设备、玻璃制造；高成交链条仍是AI硬件、光通信、PCB、半导体材料和消费电子组件。",
+    "institutional_direction": "高手发言和全A数据共振指向AI硬件继续主升，PCB连续强势两天，电相关元器件强，明日更适合观察存储、半导体、光通信和半导体设备材料ETF的承接。",
+    "risk_window": "指数收在5m中枢下方，总闸偏蓝；缩量打高点和单一方向小作文频出时要防加速兑现，新增买入必须同时过结构、情绪/主线、仓位三道过滤。"
+  },
+  "expert_digest": {
+    "source": "D:\\OneDrive\\Stock\\Replies collect\\今日汇总.md",
+    "updated_at": "2026-06-16T21:31:08",
+    "market_color": "黄灯偏蓝",
+    "trade_type": "核心趋势验证",
+    "main_focus": "AI硬件 / 光通信 / PCB / 半导体设备材料",
+    "execution": "只做核心，等承接",
+    "consensus": "跟踪对象普遍认为今天是缩量分化行情，小票强于大票，但AI硬件继续主升，电相关元器件更强；全A数据也显示光纤光缆、PCB、玻纤、锂电设备等方向有强度。",
+    "divergence": "PCB已经连续强势两天，明天追买难度加大；短线更关注存储、半导体、光通信能否接力，趋势视角则强调AI上游核心圈继续内部轮动。",
+    "risk": "指数总闸偏蓝，且主力净额小幅流出；缩量加速、小作文频出、单一方向过热时容易兑现。前一天推仓位打确定性的票，若竞价缺承接要先减。",
+    "tomorrow": "明日先看上证能否收回4093.53并站稳4097.17，再看光通信、PCB、半导体设备材料和存储方向是否有VWAP承接；PCB不追第三天加速，优先看核心回踩或ETF验证。",
+    "selection_rule": "从6月16日汇总中保留能转化为盘面主线、风险、执行和明日动作的发言；纯聊天、无交易含义和脱离板块的内容不进入看板。",
+    "metrics": [
+      {
+        "label": "盘面颜色",
+        "value": "黄灯偏蓝",
+        "hint": "指数在5m中枢下方，全A仅温和分化，核心方向强但总闸未修复。"
+      },
+      {
+        "label": "交易类型",
+        "value": "核心趋势验证",
+        "hint": "不是普涨追买日，只验证AI硬件和上游核心承接。"
+      },
+      {
+        "label": "主线焦点",
+        "value": "AI硬件链",
+        "hint": "光通信、PCB、半导体材料设备、电相关元器件被反复提及。"
+      },
+      {
+        "label": "执行结论",
+        "value": "等承接",
+        "hint": "PCB连续两天强势，明日不追加速，等回踩或换到存储/半导体/光的承接验证。"
+      }
+    ],
+    "decisions": [
+      {
+        "label": "共识",
+        "text": "缩量分化下，AI硬件继续主升，强度集中在光通信、PCB、玻纤、半导体材料设备和电相关元器件，核心龙头强更强。"
+      },
+      {
+        "label": "分歧",
+        "text": "PCB连续强势两天后买点变差，明天是否继续追PCB有分歧；更稳的做法是看存储、半导体、光通信和半导体设备材料ETF是否承接。"
+      },
+      {
+        "label": "风险",
+        "text": "指数总闸偏蓝、主力净额小幅流出，单一方向小作文频出叠加股价加速时要防兑现；竞价无量承接的高开不能硬拿。"
+      },
+      {
+        "label": "明日",
+        "text": "先看指数收回4093.53/4097.17；个股只看核心趋势票回踩VWAP和低级别结构，PCB第三天不追，亨通/588710作为光通信和半导体设备材料方向验证。"
+      }
+    ],
+    "briefs": [
+      {
+        "title": "指数",
+        "text": "偏蓝，先收回4093.53，再看4097.17；未收回前新增降级。"
+      },
+      {
+        "title": "核心科技",
+        "text": "AI硬件主升继续，但只看光通信、PCB、半导体设备材料的核心承接。"
+      },
+      {
+        "title": "PCB",
+        "text": "连续强势两天，明天很难有舒服买点，不能追第三天加速。"
+      },
+      {
+        "title": "新开仓",
+        "text": "09:30-10:00不追，带量高开也要看竞价和VWAP承接。"
+      }
+    ],
+    "theme_heat": [
+      {
+        "label": "光通信",
+        "level": "高"
+      },
+      {
+        "label": "PCB",
+        "level": "高"
+      },
+      {
+        "label": "半导体设备",
+        "level": "活跃"
+      },
+      {
+        "label": "指数风险",
+        "level": "中"
+      }
+    ],
+    "opportunities": [
+      "光纤光缆全市场均涨约6.9%，亨通光电、中天科技等容量票强，明日看新高附近承接而非追高。",
+      "AI服务器链/高端PCB/半导体材料成交约7491亿，仍是最大资金池；沪电股份只看中枢上沿和VWAP承接。",
+      "588710作为半导体设备材料方向ETF，可用于观察AI上游扩散到设备材料的整体弹性。"
+    ],
+    "risk_lines": [
+      "指数收在5m中枢下方，总闸偏蓝，新增买点先降级。",
+      "PCB连续两天强势，若明天缩量加速或竞价无承接，容易高位兑现。",
+      "单一方向小作文频出、股价加速时不要吃到最后，优先保留利润垫。"
+    ],
+    "filters": [
+      "先看指数4093.53/4097.17是否收回，再决定是否放大进攻。",
+      "只做AI硬件链、光通信、PCB、半导体设备材料里的核心，不做无板块地位的后排。",
+      "没有VWAP承接或低级别买点，不在高开一致时新增。",
+      "所有新增买入都要过结构、情绪/主线、仓位三道过滤。"
+    ],
+    "quotes": [
+      {
+        "tag": "盘面",
+        "source": "NGA / fuelish / 15:08",
+        "quote": "因为缩量，小票比大票涨的好，不过ai硬继续主升，和电相关的元器件比较强。",
+        "context": "0616复盘对当天盘面的概括。",
+        "takeaway": "今天不是普涨，而是缩量分化中AI硬件和电相关元器件继续占优。",
+        "action": "只看板块核心龙头，后排不因红盘升级。",
+        "url": "https://bbs.nga.cn/read.php?tid=44279886&pid=871914887"
+      },
+      {
+        "tag": "明日",
+        "source": "NGA / fuelish / 15:08",
+        "quote": "pcb连续强势了两天了，这个板块明天很难有买点了，那明天就关注存储芯片半导体以及光了。",
+        "context": "对PCB连续强势后的隔日观察方向。",
+        "takeaway": "PCB第三天追买性价比下降，存储、半导体和光通信更适合作为明日承接观察。",
+        "action": "沪电不追，亨通和588710看承接确认。",
+        "url": "https://bbs.nga.cn/read.php?tid=44279886&pid=871914887"
+      },
+      {
+        "tag": "执行",
+        "source": "NGA / 丶阿疯 / 15:21",
+        "quote": "超预期就拿，不及预期就减，严重不及预期就割。",
+        "context": "短线执行纪律。",
+        "takeaway": "明日高开或低开都不重要，关键是是否超预期且有量和承接。",
+        "action": "竞价和开盘承接不及预期时先减活动仓。",
+        "url": "https://bbs.nga.cn/read.php?tid=44279886&pid=871916547"
+      },
+      {
+        "tag": "板块",
+        "source": "NGA / 丶阿疯 / 15:20",
+        "quote": "不能再脱离板块了，再自己玩就没意思了。",
+        "context": "讨论强势个股走到后段后必须依赖板块合力。",
+        "takeaway": "个股新高和加速阶段，板块合力比单票故事更重要。",
+        "action": "亨通、沪电都要看光通信/PCB板块合力，不单看个股形态。",
+        "url": "https://bbs.nga.cn/read.php?tid=44279886&pid=871916387"
+      },
+      {
+        "tag": "承接",
+        "source": "虎扑 / 华福证券福清清宏路营业部 / 盘后",
+        "quote": "主要看量，超预期的带量高开看不看。如果说几乎没有承接，竞价每分钟都在向下走那我们拿的理由什么呢。",
+        "context": "讨论高开后是留还是砸。",
+        "takeaway": "高开不是买点，量和承接才是买点；前一日推仓位的票，竞价弱就要减。",
+        "action": "明日不追高开一致，先看VWAP和竞价分时。",
+        "url": "https://my.hupu.com/78406233693990?tabKey=2"
+      },
+      {
+        "tag": "核心",
+        "source": "雪球 / 关注流 / 晚间",
+        "quote": "回来的还是那些东西，存储，光，先进封装，也就是整个AI科技，最最最顶级的东西。",
+        "context": "晚间对AI科技主线的概括。",
+        "takeaway": "资金仍围绕AI上游核心圈内部轮动，方向没有扩散到泛题材。",
+        "action": "关注存储、光、先进封装和半导体设备材料ETF的承接。",
+        "url": "D:\\OneDrive\\Stock\\Replies collect\\今日汇总.md"
+      },
+      {
+        "tag": "风险",
+        "source": "NGA / 趋势发言 / 下午",
+        "quote": "一旦你们看见单一方向小作文频出，然后股价加速的时候就要小心了。",
+        "context": "讨论核心圈材料内部轮动和小作文催化。",
+        "takeaway": "主线强不等于可以追加速，越一致越要防兑现。",
+        "action": "强势票优先等回踩，不吃最后一段情绪加速。",
+        "url": "D:\\OneDrive\\Stock\\Replies collect\\今日汇总.md"
+      },
+      {
+        "tag": "切换",
+        "source": "趋势跟踪 / 晚间",
+        "quote": "最近在底部筹码有变化的板块可以重点关注，一个是金属，另一个是券商。",
+        "context": "讨论Q2末机构调仓和低位方向。",
+        "takeaway": "除AI核心外，金属和券商是低位筹码变化线索，但当前只作观察，不替代主线。",
+        "action": "盛新锂能若不能收回结构位，不因资源线索盲目补仓。",
+        "url": "D:\\OneDrive\\Stock\\Replies collect\\今日汇总.md"
+      }
+    ]
+  },
+  "market_ecology": {
+    "available": true,
+    "source_file": "D:\\OneDrive\\Stock\\details\\全部Ａ股20260616.xlsx",
+    "daily": {
+      "sample": 5192,
+      "up": 2623,
+      "down": 2467,
+      "flat": 102,
+      "up_ratio": 0.5153241650294695,
+      "median_pct": 0.07,
+      "limit_up": 182,
+      "limit_down": 9,
+      "gt5": 472,
+      "lt5": 77,
+      "amount_100m": 30644.958382,
+      "main_net_100m": -72.77143699999993,
+      "open_up": 1748,
+      "open_down": 2709
+    },
+    "top_industries_by_avg": [
+      {
+        "industry": "光纤光缆",
+        "n": 11,
+        "avg_pct": 6.917272727272728,
+        "med_pct": 5.45,
+        "up_ratio": 1.0,
+        "limit_up": 3,
+        "gt5": 6,
+        "amount_100m": 680.9123820000001,
+        "main_net_100m": 37.209502,
+        "top_names": [
+          "长盈通",
+          "华脉科技",
+          "永鼎股份",
+          "亨通光电",
+          "通鼎互联",
+          "中天科技"
+        ]
+      },
+      {
+        "industry": "玻纤制造",
+        "n": 9,
+        "avg_pct": 6.664444444444445,
+        "med_pct": 8.46,
+        "up_ratio": 1.0,
+        "limit_up": 4,
+        "gt5": 5,
+        "amount_100m": 335.042382,
+        "main_net_100m": 0.9113380000000012,
+        "top_names": [
+          "国际复材",
+          "中材科技",
+          "宏和科技",
+          "山东玻纤",
+          "中国巨石",
+          "长海股份"
+        ]
+      },
+      {
+        "industry": "锂电设备",
+        "n": 12,
+        "avg_pct": 6.3675,
+        "med_pct": 4.895,
+        "up_ratio": 1.0,
+        "limit_up": 2,
+        "gt5": 6,
+        "amount_100m": 111.94064099999999,
+        "main_net_100m": 14.037215000000002,
+        "top_names": [
+          "先导智能",
+          "正业科技",
+          "杭可科技",
+          "信宇人",
+          "利元亨",
+          "誉辰智能"
+        ]
+      },
+      {
+        "industry": "锂电池",
+        "n": 27,
+        "avg_pct": 5.077037037037037,
+        "med_pct": 3.98,
+        "up_ratio": 1.0,
+        "limit_up": 5,
+        "gt5": 11,
+        "amount_100m": 565.096113,
+        "main_net_100m": 22.711905000000005,
+        "top_names": [
+          "亿纬锂能",
+          "珠海冠宇",
+          "威尔泰",
+          "豪鹏科技",
+          "诺德股份",
+          "科力远",
+          "德福科技",
+          "嘉元科技",
+          "中一科技",
+          "科达利"
+        ]
+      },
+      {
+        "industry": "其他发电设备",
+        "n": 24,
+        "avg_pct": 4.951666666666667,
+        "med_pct": 3.855,
+        "up_ratio": 0.8333333333333334,
+        "limit_up": 5,
+        "gt5": 10,
+        "amount_100m": 223.26198300000001,
+        "main_net_100m": 8.201262000000002,
+        "top_names": [
+          "欧陆通",
+          "科威尔",
+          "爱科赛博",
+          "麦格米特",
+          "通合科技",
+          "新雷能",
+          "英杰电气"
+        ]
+      },
+      {
+        "industry": "玻璃制造",
+        "n": 8,
+        "avg_pct": 4.78375,
+        "med_pct": 3.095,
+        "up_ratio": 1.0,
+        "limit_up": 2,
+        "gt5": 3,
+        "amount_100m": 106.67892900000001,
+        "main_net_100m": 1.402659,
+        "top_names": [
+          "旗滨集团",
+          "南 玻Ａ",
+          "力诺药包",
+          "菲利华",
+          "金晶科技",
+          "凯盛新能"
+        ]
+      },
+      {
+        "industry": "激光设备",
+        "n": 12,
+        "avg_pct": 4.666666666666667,
+        "med_pct": 4.005,
+        "up_ratio": 0.9166666666666666,
+        "limit_up": 1,
+        "gt5": 5,
+        "amount_100m": 318.993077,
+        "main_net_100m": 18.002742,
+        "top_names": [
+          "大族激光",
+          "光智科技",
+          "XD杰普特",
+          "锐科激光",
+          "海目星",
+          "光韵达"
+        ]
+      },
+      {
+        "industry": "磁性材料",
+        "n": 15,
+        "avg_pct": 4.534000000000001,
+        "med_pct": 4.2,
+        "up_ratio": 0.9333333333333333,
+        "limit_up": 1,
+        "gt5": 5,
+        "amount_100m": 130.296022,
+        "main_net_100m": 14.029658000000001,
+        "top_names": [
+          "中科三环",
+          "宁波韵升",
+          "大地熊",
+          "云路股份",
+          "金力永磁",
+          "春光集团"
+        ]
+      },
+      {
+        "industry": "有机硅",
+        "n": 10,
+        "avg_pct": 4.42,
+        "med_pct": 4.54,
+        "up_ratio": 0.9,
+        "limit_up": 1,
+        "gt5": 5,
+        "amount_100m": 83.79459200000001,
+        "main_net_100m": 5.735932,
+        "top_names": [
+          "合盛硅业",
+          "东岳硅材",
+          "润禾材料",
+          "宏柏新材",
+          "新安股份",
+          "新亚强"
+        ]
+      },
+      {
+        "industry": "被动元件",
+        "n": 15,
+        "avg_pct": 4.348666666666667,
+        "med_pct": 4.39,
+        "up_ratio": 0.7333333333333333,
+        "limit_up": 2,
+        "gt5": 7,
+        "amount_100m": 540.11667,
+        "main_net_100m": 6.79435,
+        "top_names": [
+          "艾华集团",
+          "江海股份",
+          "麦捷科技",
+          "风华高科",
+          "洁美科技",
+          "法拉电子",
+          "铜峰电子"
+        ]
+      }
+    ],
+    "top_industries_by_amount": [
+      {
+        "industry": "集成电路设计",
+        "n": 90,
+        "avg_pct": 2.5504444444444445,
+        "med_pct": 2.09,
+        "up_ratio": 0.8333333333333334,
+        "limit_up": 2,
+        "gt5": 17,
+        "amount_100m": 1817.483502,
+        "main_net_100m": 22.528092000000004,
+        "top_names": [
+          "南芯科技",
+          "源杰科技",
+          "圣邦股份",
+          "灿瑞科技",
+          "芯朋微",
+          "英集芯",
+          "芯原股份",
+          "普冉股份",
+          "盛科通信-U",
+          "杰华特"
+        ]
+      },
+      {
+        "industry": "PCB",
+        "n": 44,
+        "avg_pct": 3.935909090909091,
+        "med_pct": 2.795,
+        "up_ratio": 0.8636363636363636,
+        "limit_up": 6,
+        "gt5": 12,
+        "amount_100m": 1531.7329209999998,
+        "main_net_100m": 19.75089,
+        "top_names": [
+          "本川智能",
+          "逸豪新材",
+          "兴森科技",
+          "华正新材",
+          "超颖电子",
+          "宝鼎科技",
+          "生益科技",
+          "沪电股份",
+          "南亚新材",
+          "红板科技"
+        ]
+      },
+      {
+        "industry": "网络接配及塔设",
+        "n": 24,
+        "avg_pct": 3.7570833333333336,
+        "med_pct": 2.25,
+        "up_ratio": 0.7916666666666666,
+        "limit_up": 4,
+        "gt5": 8,
+        "amount_100m": 1377.826854,
+        "main_net_100m": -8.452280999999997,
+        "top_names": [
+          "太辰光",
+          "光库科技",
+          "灿勤科技",
+          "武汉凡谷",
+          "天孚通信",
+          "铭普光磁",
+          "长芯博创"
+        ]
+      },
+      {
+        "industry": "消费电子组件",
+        "n": 86,
+        "avg_pct": 3.590348837209302,
+        "med_pct": 3.085,
+        "up_ratio": 0.8255813953488372,
+        "limit_up": 9,
+        "gt5": 24,
+        "amount_100m": 1203.961479,
+        "main_net_100m": -16.922970000000003,
+        "top_names": [
+          "胜蓝股份",
+          "精研科技",
+          "珠城科技",
+          "鸿富瀚",
+          "隆扬电子",
+          "达瑞电子",
+          "蓝思科技",
+          "致尚科技",
+          "奕东电子",
+          "硕贝德"
+        ]
+      },
+      {
+        "industry": "半导体材料",
+        "n": 48,
+        "avg_pct": 1.9929166666666667,
+        "med_pct": 1.5550000000000002,
+        "up_ratio": 0.6666666666666666,
+        "limit_up": 4,
+        "gt5": 9,
+        "amount_100m": 1015.812818,
+        "main_net_100m": -0.7358559999999997,
+        "top_names": [
+          "三孚新科",
+          "有研新材",
+          "江化微",
+          "光华科技",
+          "欧莱新材",
+          "先导基电",
+          "阿石创",
+          "广钢气体"
+        ]
+      },
+      {
+        "industry": "光纤光缆",
+        "n": 11,
+        "avg_pct": 6.917272727272728,
+        "med_pct": 5.45,
+        "up_ratio": 1.0,
+        "limit_up": 3,
+        "gt5": 6,
+        "amount_100m": 680.9123820000001,
+        "main_net_100m": 37.209502,
+        "top_names": [
+          "长盈通",
+          "华脉科技",
+          "永鼎股份",
+          "亨通光电",
+          "通鼎互联",
+          "中天科技"
+        ]
+      },
+      {
+        "industry": "其他专用设备",
+        "n": 120,
+        "avg_pct": 2.34625,
+        "med_pct": 1.755,
+        "up_ratio": 0.775,
+        "limit_up": 5,
+        "gt5": 15,
+        "amount_100m": 621.952143,
+        "main_net_100m": 17.364107,
+        "top_names": [
+          "华曙高科",
+          "华兴源创",
+          "金马游乐",
+          "东威科技",
+          "安达智能",
+          "思泰克",
+          "精智达",
+          "芯碁微装",
+          "大族数控"
+        ]
+      },
+      {
+        "industry": "锂电池",
+        "n": 27,
+        "avg_pct": 5.077037037037037,
+        "med_pct": 3.98,
+        "up_ratio": 1.0,
+        "limit_up": 5,
+        "gt5": 11,
+        "amount_100m": 565.096113,
+        "main_net_100m": 22.711905000000005,
+        "top_names": [
+          "亿纬锂能",
+          "珠海冠宇",
+          "威尔泰",
+          "豪鹏科技",
+          "诺德股份",
+          "科力远",
+          "德福科技",
+          "嘉元科技",
+          "中一科技",
+          "科达利"
+        ]
+      },
+      {
+        "industry": "行业应用软件",
+        "n": 184,
+        "avg_pct": 0.6475,
+        "med_pct": 0.245,
+        "up_ratio": 0.5706521739130435,
+        "limit_up": 3,
+        "gt5": 7,
+        "amount_100m": 564.856217,
+        "main_net_100m": -12.898406999999997,
+        "top_names": [
+          "云天励飞-U",
+          "天亿马",
+          "盛视科技",
+          "*ST易录",
+          "浩云科技",
+          "盛邦安全",
+          "维宏股份"
+        ]
+      },
+      {
+        "industry": "被动元件",
+        "n": 15,
+        "avg_pct": 4.348666666666667,
+        "med_pct": 4.39,
+        "up_ratio": 0.7333333333333333,
+        "limit_up": 2,
+        "gt5": 7,
+        "amount_100m": 540.11667,
+        "main_net_100m": 6.79435,
+        "top_names": [
+          "艾华集团",
+          "江海股份",
+          "麦捷科技",
+          "风华高科",
+          "洁美科技",
+          "法拉电子",
+          "铜峰电子"
+        ]
+      }
+    ],
+    "theme_mappings": [
+      {
+        "market_theme": "玻纤 / 复合材料",
+        "confidence": "中",
+        "official_industries": [
+          "玻纤制造"
+        ],
+        "reading": "材料侧轮动方向，只有放量扩散并出现容量核心时才提高优先级。",
+        "n": 9,
+        "avg_pct": 6.664444444444445,
+        "up_ratio": 1.0,
+        "limit_up": 4,
+        "gt5": 5,
+        "amount_100m": 335.042382,
+        "main_net_100m": 0.9113380000000012,
+        "top_names": [
+          "国际复材",
+          "中材科技",
+          "宏和科技",
+          "山东玻纤",
+          "中国巨石",
+          "长海股份"
+        ]
+      },
+      {
+        "market_theme": "光通信 / CPO / 6G / AI硬件链",
+        "confidence": "中高",
+        "official_industries": [
+          "光纤光缆",
+          "网络接配及塔设",
+          "其他通信设备",
+          "通信终端及配件",
+          "通信工程及服务"
+        ],
+        "reading": "仍在科技主线池，优先看容量核心和趋势承接，不把分支轮动当成全线主升。",
+        "n": 82,
+        "avg_pct": 3.3065853658536586,
+        "up_ratio": 0.8414634146341463,
+        "limit_up": 9,
+        "gt5": 19,
+        "amount_100m": 2267.6169090000003,
+        "main_net_100m": 34.697505,
+        "top_names": [
+          "长进光子",
+          "太辰光",
+          "长盈通",
+          "光库科技",
+          "灿勤科技",
+          "武汉凡谷",
+          "亨通光电",
+          "天孚通信",
+          "中天科技",
+          "长芯博创"
+        ]
+      },
+      {
+        "market_theme": "AI服务器链 / 高端PCB / MLCC / 半导体材料",
+        "confidence": "中高",
+        "official_industries": [
+          "PCB",
+          "被动元件",
+          "半导体材料",
+          "集成电路设计",
+          "消费电子组件",
+          "半导体设备",
+          "半导体封测",
+          "其他电子"
+        ],
+        "reading": "前期强势链条要重点区分主线延续和高位兑现；放量下跌时按分歧处理。",
+        "n": 367,
+        "avg_pct": 2.988119891008174,
+        "up_ratio": 0.8038147138964578,
+        "limit_up": 29,
+        "gt5": 82,
+        "amount_100m": 7491.109519999999,
+        "main_net_100m": 14.937087,
+        "top_names": [
+          "南芯科技",
+          "胜蓝股份",
+          "雅创电子",
+          "本川智能",
+          "逸豪新材",
+          "精研科技",
+          "生益科技",
+          "沪电股份",
+          "风华高科",
+          "蓝思科技"
+        ]
+      },
+      {
+        "market_theme": "玻璃基板 / 玻璃玻纤 / 显示链",
+        "confidence": "中",
+        "official_industries": [
+          "玻璃制造",
+          "面板",
+          "光学元件",
+          "LED"
+        ],
+        "reading": "偏轮动分支，除非连续出现梯队和容量核心，否则以观察或小仓试错为主。",
+        "n": 111,
+        "avg_pct": 2.8609009009009014,
+        "up_ratio": 0.7837837837837838,
+        "limit_up": 10,
+        "gt5": 25,
+        "amount_100m": 1043.999505,
+        "main_net_100m": 7.418615999999999,
+        "top_names": [
+          "长信科技",
+          "旗滨集团",
+          "沃格光电",
+          "三安光电",
+          "冠石科技",
+          "南 玻Ａ",
+          "彩虹股份",
+          "东田微",
+          "凯盛科技"
+        ]
+      },
+      {
+        "market_theme": "机器人 / 具身智能 / 自动化设备",
+        "confidence": "高",
+        "official_industries": [
+          "机器人",
+          "机械基础件",
+          "电机制造",
+          "仪器仪表",
+          "系统设备",
+          "工业控制设备",
+          "机床制造",
+          "其他通用设备",
+          "其他专用设备"
+        ],
+        "reading": "按高端制造和自动化分支观察；若只有首日普涨，新增买点仍要等核心回踩承接。",
+        "n": 354,
+        "avg_pct": 2.1707909604519777,
+        "up_ratio": 0.7401129943502824,
+        "limit_up": 16,
+        "gt5": 49,
+        "amount_100m": 1886.375211,
+        "main_net_100m": 30.119484999999997,
+        "top_names": [
+          "德恩精工",
+          "南方泵业",
+          "普源精电",
+          "华曙高科",
+          "开勒股份",
+          "华兴源创",
+          "烽火通信",
+          "精智达",
+          "机器人",
+          "芯碁微装"
+        ]
+      },
+      {
+        "market_theme": "小金属 / 有色资源",
+        "confidence": "中",
+        "official_industries": [
+          "钨钼",
+          "其他金属",
+          "铅锌",
+          "铜",
+          "钛"
+        ],
+        "reading": "弱市里的资源抱团方向，先看持续性和成交承接，不把首日强度直接当主升。",
+        "n": 56,
+        "avg_pct": 1.1058928571428572,
+        "up_ratio": 0.5714285714285714,
+        "limit_up": 5,
+        "gt5": 9,
+        "amount_100m": 1502.381716,
+        "main_net_100m": -52.73243200000001,
+        "top_names": [
+          "有研粉材",
+          "厦门钨业",
+          "盛龙股份",
+          "三祥新材",
+          "华钰矿业",
+          "翔鹭钨业",
+          "中钨高新",
+          "贵研铂业",
+          "东方钽业"
+        ]
+      },
+      {
+        "market_theme": "军工 / 商业航天 / 低空装备",
+        "confidence": "中",
+        "official_industries": [
+          "航天装备",
+          "军工电子",
+          "航空装备",
+          "地面兵装"
+        ],
+        "reading": "适合做分支强弱比较，只有放量扩散并出现核心承接时才提高优先级。",
+        "n": 122,
+        "avg_pct": 0.6248360655737705,
+        "up_ratio": 0.48360655737704916,
+        "limit_up": 3,
+        "gt5": 10,
+        "amount_100m": 740.5272110000001,
+        "main_net_100m": -23.007407000000004,
+        "top_names": [
+          "宏达电子",
+          "超卓航科",
+          "盛路通信",
+          "天和防务",
+          "振华科技",
+          "炼石航空",
+          "火炬电子",
+          "鸿远电子",
+          "宏明电子"
+        ]
+      },
+      {
+        "market_theme": "磷化工 / 氟化工 / 化工材料",
+        "confidence": "中",
+        "official_industries": [
+          "磷肥及磷化工",
+          "氟化工"
+        ],
+        "reading": "材料分支偏事件和价格预期驱动，重点观察前排是否继续扩散。",
+        "n": 19,
+        "avg_pct": 0.4868421052631579,
+        "up_ratio": 0.5789473684210527,
+        "limit_up": 0,
+        "gt5": 1,
+        "amount_100m": 363.275556,
+        "main_net_100m": -15.920898999999997,
+        "top_names": [
+          "兴发集团",
+          "昊华科技",
+          "永太科技",
+          "川金诺",
+          "澄星股份",
+          "联创股份"
+        ]
+      },
+      {
+        "market_theme": "锂矿 / 锂盐 / 电池材料",
+        "confidence": "中高",
+        "official_industries": [
+          "锂"
+        ],
+        "reading": "资源品事件驱动和价格预期修复并存，强势日不追一致，优先等分歧后的承接。",
+        "n": 11,
+        "avg_pct": -1.7554545454545456,
+        "up_ratio": 0.2727272727272727,
+        "limit_up": 0,
+        "gt5": 0,
+        "amount_100m": 299.887333,
+        "main_net_100m": -13.134431,
+        "top_names": [
+          "江特电机",
+          "天齐锂业",
+          "赣锋锂业",
+          "雅化集团",
+          "西藏矿业",
+          "中矿资源"
+        ]
+      }
+    ],
+    "focus_stocks": [
+      {
+        "code": "002240",
+        "name": "盛新锂能",
+        "industry": "锂",
+        "market_themes": [
+          "锂矿 / 锂盐 / 电池材料"
+        ],
+        "confidence": "中高",
+        "reading": "资源品事件驱动和价格预期修复并存，强势日不追一致，优先等分歧后的承接。",
+        "pct": -5.46,
+        "boards": null,
+        "streak": -1.0,
+        "amount_100m": 41.488734,
+        "main_net_100m": -4.102405999999999,
+        "open_pct": -2.15,
+        "prev_pct": 1.08
+      },
+      {
+        "code": "002463",
+        "name": "沪电股份",
+        "industry": "PCB",
+        "market_themes": [
+          "AI服务器链 / 高端PCB / MLCC / 半导体材料"
+        ],
+        "confidence": "中高",
+        "reading": "前期强势链条要重点区分主线延续和高位兑现；放量下跌时按分歧处理。",
+        "pct": 5.14,
+        "boards": null,
+        "streak": 2.0,
+        "amount_100m": 153.326663,
+        "main_net_100m": 7.696998,
+        "open_pct": 0.33,
+        "prev_pct": 6.84
+      },
+      {
+        "code": "600487",
+        "name": "亨通光电",
+        "industry": "光纤光缆",
+        "market_themes": [
+          "光通信 / CPO / 6G / AI硬件链"
+        ],
+        "confidence": "中高",
+        "reading": "仍在科技主线池，优先看容量核心和趋势承接，不把分支轮动当成全线主升。",
+        "pct": 8.28,
+        "boards": null,
+        "streak": 2.0,
+        "amount_100m": 237.699325,
+        "main_net_100m": 15.136686,
+        "open_pct": -1.08,
+        "prev_pct": 2.35
+      }
+    ],
+    "summary": {
+      "short_term_mood": "震荡分化",
+      "mainline": "光纤光缆 / 玻纤制造 / 锂电设备 / 锂电池 / 其他发电设备 / 玻璃制造",
+      "risk_window": "新增买入只看主线核心回踩承接；高成交题材若主力净额转弱，按分歧兑现处理。"
+    }
+  }
+}

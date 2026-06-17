@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import html
+import json
 from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -45,11 +47,22 @@ def first_non_empty_line(value: str, max_chars: int = 90) -> str:
     return ""
 
 
+def post_author_name(row) -> str:
+    fallback = row["author_name"] or ""
+    if row["site_name"] != "雪球":
+        return fallback
+    try:
+        raw = json.loads(row["raw_json"] or "{}")
+    except json.JSONDecodeError:
+        return fallback
+    return str(raw.get("author") or fallback)
+
+
 def metadata_line(row) -> str:
     parts = [
         format_time(row["published_at"] or row["crawled_at"]),
         row["site_name"],
-        row["author_name"],
+        post_author_name(row),
     ]
     title = clean_title(row["title"])
     if title:
@@ -57,6 +70,40 @@ def metadata_line(row) -> str:
     if row["url"]:
         parts.append(f"[查看原帖]({row['url']})")
     return " ｜ ".join(parts)
+
+
+def post_date(row) -> str:
+    parsed = parse_post_time(row["published_at"] or row["crawled_at"])
+    if parsed:
+        return parsed.strftime("%Y-%m-%d")
+    value = str(row["published_at"] or row["crawled_at"] or "")
+    return value[:10] if len(value) >= 10 else "未知日期"
+
+
+def date_sort_key(value: str) -> tuple[int, datetime]:
+    try:
+        return (1, datetime.strptime(value, "%Y-%m-%d"))
+    except ValueError:
+        return (0, datetime.min)
+
+
+def author_anchor(style_index: int, source_index: int) -> str:
+    return f"author-{style_index}-{source_index}"
+
+
+def html_id(*parts: object) -> str:
+    raw = "-".join(str(part) for part in parts)
+    return "".join(ch if ch.isalnum() else "-" for ch in raw).strip("-").lower()
+
+
+def render_text_html(value: str) -> str:
+    return html.escape(value or "").replace("\n", "<br>")
+
+
+def should_show_preview(content: str, preview: str) -> bool:
+    if not preview:
+        return False
+    return not (content or "").lstrip().startswith(preview)
 
 
 def write_report(summary: list[dict], exported_paths: list[Path]) -> Path:
@@ -101,6 +148,7 @@ def write_export_index(exported_paths: list[Path]) -> Path:
         "# 高手发言导出索引",
         "",
         f"- 更新时间：{datetime.now().isoformat(timespec='seconds')}",
+        "- [高手发言阅读看板](高手发言阅读看板.html)",
         "",
     ]
     for style in sorted(grouped):
@@ -162,23 +210,32 @@ def fetch_posts_for_summary(conn, days: int | None = None, style: str | None = N
 
 
 def render_summary(title: str, rows) -> str:
-    lines = [
-        f"# {title}",
-        "",
-        f"> 更新时间：{datetime.now().isoformat(timespec='seconds')} ｜ records: {len(rows)}",
-        "",
-    ]
-
     grouped: dict[str, dict[str, list]] = {}
     for row in rows:
         style = row["style"] or "未分类"
         source = f"{row['site_name']} / {row['author_name']}"
         grouped.setdefault(style, {}).setdefault(source, []).append(row)
 
+    lines = [
+        f"# {title}",
+        "",
+        f"> 更新时间：{datetime.now().isoformat(timespec='seconds')} ｜ records: {len(rows)}",
+        "",
+    ]
+    if grouped:
+        lines.extend(["## 作者导航", ""])
+        for style_index, style in enumerate(sorted(grouped), 1):
+            links = []
+            for source_index, source in enumerate(sorted(grouped[style]), 1):
+                count = len(grouped[style][source])
+                links.append(f"[{source} ({count})](#{author_anchor(style_index, source_index)})")
+            lines.extend([f"**{style}**", "", " · ".join(links), ""])
+
     index = 1
-    for style in sorted(grouped):
+    for style_index, style in enumerate(sorted(grouped), 1):
         lines.extend([f"## {style}", ""])
-        for source in sorted(grouped[style]):
+        for source_index, source in enumerate(sorted(grouped[style]), 1):
+            lines.extend([f'<a id="{author_anchor(style_index, source_index)}"></a>', ""])
             lines.extend([f"### {source}", ""])
             for row in grouped[style][source]:
                 content = (row["content"] or "").strip()
@@ -192,7 +249,7 @@ def render_summary(title: str, rows) -> str:
                         f"> {metadata_line(row)}",
                     ]
                 )
-                if preview:
+                if should_show_preview(content, preview):
                     lines.extend(["", f"**速览：** {preview}"])
                 lines.extend(
                     [
@@ -223,6 +280,346 @@ def write_summary_files() -> list[Path]:
             path.write_text(render_summary(title, rows), encoding="utf-8-sig")
             paths.append(path)
     return paths
+
+
+def write_reader_dashboard(days: int = 14, limit: int | None = None) -> Path:
+    path = CLOUD_ROOT / "高手发言阅读看板.html"
+    with connect() as conn:
+        rows = fetch_posts_for_summary(conn, days=days, limit=limit)
+
+    grouped: dict[str, dict[str, dict[str, list]]] = {}
+    for row in rows:
+        date = post_date(row)
+        style = row["style"] or "未分类"
+        source = f"{row['site_name']} / {row['author_name']}"
+        grouped.setdefault(date, {}).setdefault(style, {}).setdefault(source, []).append(row)
+
+    dates = sorted(grouped.keys(), key=date_sort_key, reverse=True)
+    selected_date = dates[0] if dates else ""
+    total_records = sum(len(grouped[date][style][source]) for date in grouped for style in grouped[date] for source in grouped[date][style])
+    generated_at = datetime.now().isoformat(timespec="seconds")
+
+    sections: list[str] = []
+    for date in dates:
+        sections.append(
+            f'<section class="date-section" data-date="{html.escape(date)}" '
+            f'{"hidden" if date != selected_date else ""}>'
+        )
+        sections.append(f'<div class="date-heading"><span>{html.escape(date)}</span><em>{sum(len(grouped[date][style][source]) for style in grouped[date] for source in grouped[date][style])} records</em></div>')
+        for style in sorted(grouped[date]):
+            sections.append(f'<h2 class="style-heading">{html.escape(style)}</h2>')
+            for source in sorted(grouped[date][style]):
+                anchor = html_id(date, style, source)
+                records = grouped[date][style][source]
+                sections.append(
+                    f'<section class="author-section" id="{anchor}" data-date="{html.escape(date)}" '
+                    f'data-style="{html.escape(style)}" data-source="{html.escape(source)}" data-count="{len(records)}">'
+                )
+                sections.append(f'<h3>{html.escape(source)} <span>{len(records)}</span></h3>')
+                for index, row in enumerate(records, 1):
+                    content = (row["content"] or "").strip()
+                    if not content:
+                        continue
+                    title = clean_title(row["title"])
+                    url = row["url"] or ""
+                    sections.append('<article class="post">')
+                    sections.append('<div class="post-meta">')
+                    sections.append(f'<span>{html.escape(format_time(row["published_at"] or row["crawled_at"]))}</span>')
+                    sections.append(f'<span>{html.escape(post_author_name(row))}</span>')
+                    if title:
+                        sections.append(f'<span>{html.escape(title)}</span>')
+                    if url:
+                        sections.append(f'<a href="{html.escape(url)}" target="_blank" rel="noopener">查看原帖</a>')
+                    sections.append('</div>')
+                    sections.append(f'<div class="content">{render_text_html(content)}</div>')
+                    sections.append('</article>')
+                sections.append('</section>')
+        sections.append('</section>')
+
+    text = f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>高手发言阅读看板</title>
+  <style>
+    :root {{
+      --bg: #f5f6f2;
+      --panel: #ffffff;
+      --ink: #20242a;
+      --muted: #68707a;
+      --line: #dfe3e6;
+      --accent: #1f6feb;
+      --accent-soft: #eaf2ff;
+      --green: #2f7d57;
+    }}
+    * {{ box-sizing: border-box; }}
+    html {{ scroll-behavior: smooth; }}
+    body {{
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
+      line-height: 1.72;
+    }}
+    .sidebar {{
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: 340px;
+      padding: 22px 18px;
+      overflow-y: auto;
+      background: #fbfcfa;
+      border-right: 1px solid var(--line);
+    }}
+    .brand h1 {{
+      margin: 0 0 6px;
+      font-size: 22px;
+      line-height: 1.25;
+    }}
+    .brand p {{
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }}
+    .nav-title {{
+      margin: 18px 0 10px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 700;
+      letter-spacing: 0;
+    }}
+    .author-nav {{
+      display: grid;
+      gap: 8px;
+    }}
+    .author-nav a {{
+      display: block;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel);
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 14px;
+    }}
+    .author-nav a:hover,
+    .author-nav a.active {{
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: #0b4fb3;
+    }}
+    .author-nav .style-label {{
+      margin: 10px 0 2px;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 800;
+    }}
+    .date-control {{
+      margin-top: 22px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+    }}
+    label {{
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }}
+    select {{
+      width: 100%;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--ink);
+      padding: 0 10px;
+      font-size: 15px;
+    }}
+    .meta {{
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 12px;
+    }}
+    main {{
+      margin-left: 340px;
+      padding: 30px 44px 80px;
+    }}
+    .reader {{
+      width: min(1180px, 100%);
+    }}
+    .date-heading {{
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }}
+    .date-heading span {{
+      font-size: 28px;
+      font-weight: 800;
+    }}
+    .date-heading em {{
+      color: var(--muted);
+      font-style: normal;
+    }}
+    .style-heading {{
+      margin: 28px 0 12px;
+      font-size: 22px;
+    }}
+    .author-section {{
+      scroll-margin-top: 18px;
+      margin-bottom: 34px;
+    }}
+    .author-section h3 {{
+      margin: 0 0 12px;
+      font-size: 19px;
+    }}
+    .author-section h3 span {{
+      margin-left: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+    }}
+    .post {{
+      margin: 0 0 16px;
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }}
+    .post-meta {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }}
+    .post-meta a {{
+      color: var(--accent);
+      text-decoration: none;
+    }}
+    .preview {{
+      margin: 12px 0 10px;
+      color: #0f3d2c;
+      font-weight: 700;
+    }}
+    .content {{
+      white-space: normal;
+      font-size: 16px;
+    }}
+    @media (max-width: 860px) {{
+      .sidebar {{
+        position: static;
+        width: auto;
+        max-height: none;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }}
+      main {{
+        margin-left: 0;
+        padding: 22px 16px 60px;
+      }}
+      .date-heading span {{
+        font-size: 23px;
+      }}
+    }}
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>高手发言阅读看板</h1>
+      <p>{html.escape(generated_at)} ｜ 最新日期 {html.escape(selected_date or "无")} ｜ {total_records} records</p>
+    </div>
+    <div class="nav-title">作者导航</div>
+    <nav id="authorNav" class="author-nav"></nav>
+    <div class="date-control">
+      <label for="dateSelect">日期选择</label>
+      <select id="dateSelect" data-latest-date="{html.escape(selected_date)}"></select>
+    </div>
+    <div class="meta">点击作者名后，右侧阅读区会跳到对应位置。</div>
+  </aside>
+  <main>
+    <div class="reader">
+      {''.join(sections)}
+    </div>
+  </main>
+  <script>
+    const dateSelect = document.getElementById('dateSelect');
+    const authorNav = document.getElementById('authorNav');
+
+    function dateRank(date) {{
+      const time = Date.parse(`${{date}}T00:00:00`);
+      return Number.isNaN(time) ? -1 : time;
+    }}
+
+    function availableDates() {{
+      const dates = Array.from(document.querySelectorAll('.date-section'))
+        .map(section => section.dataset.date)
+        .filter(Boolean);
+      return Array.from(new Set(dates)).sort((a, b) => dateRank(b) - dateRank(a) || b.localeCompare(a));
+    }}
+
+    function rebuildDateSelect() {{
+      const dates = availableDates();
+      dateSelect.innerHTML = '';
+      dates.forEach(date => {{
+        const option = document.createElement('option');
+        option.value = date;
+        option.textContent = date;
+        dateSelect.appendChild(option);
+      }});
+      const latest = dates[0] || '';
+      dateSelect.dataset.latestDate = latest;
+      return latest;
+    }}
+
+    function showDate(date) {{
+      document.querySelectorAll('.date-section').forEach(section => {{
+        section.hidden = section.dataset.date !== date;
+      }});
+      renderAuthorNav(date);
+      dateSelect.value = date;
+      const activeSection = document.querySelector(`.date-section[data-date="${{CSS.escape(date)}}"]`);
+      if (activeSection) window.scrollTo({{ top: activeSection.offsetTop - 16, behavior: 'smooth' }});
+    }}
+
+    function renderAuthorNav(date) {{
+      authorNav.innerHTML = '';
+      const sections = Array.from(document.querySelectorAll(`.author-section[data-date="${{CSS.escape(date)}}"]`));
+      let lastStyle = '';
+      sections.forEach(section => {{
+        if (section.dataset.style !== lastStyle) {{
+          const label = document.createElement('div');
+          label.className = 'style-label';
+          label.textContent = section.dataset.style;
+          authorNav.appendChild(label);
+          lastStyle = section.dataset.style;
+        }}
+        const link = document.createElement('a');
+        link.href = `#${{section.id}}`;
+        link.textContent = `${{section.dataset.source}} (${{section.dataset.count}})`;
+        link.addEventListener('click', () => {{
+          authorNav.querySelectorAll('a').forEach(item => item.classList.remove('active'));
+          link.classList.add('active');
+        }});
+        authorNav.appendChild(link);
+      }});
+    }}
+
+    dateSelect.addEventListener('change', event => showDate(event.target.value));
+    const latestDate = rebuildDateSelect();
+    if (latestDate) {{
+      showDate(latestDate);
+    }}
+  </script>
+</body>
+</html>
+"""
+    path.write_text(text, encoding="utf-8-sig")
+    return path
 
 
 def main() -> int:
@@ -311,10 +708,12 @@ def main() -> int:
     report_path = write_report(summary, exported_paths)
     index_path = write_export_index(exported_paths)
     summary_paths = write_summary_files()
+    dashboard_path = write_reader_dashboard()
 
     print(f"收集完成：{len(summary)} 个目标")
     print(f"导出文件：{len(exported_paths)} 个")
     print(f"汇总文件：{len(summary_paths)} 个")
+    print(f"阅读看板：{dashboard_path}")
     print(f"报告：{report_path}")
     print(f"索引：{index_path}")
     return 0

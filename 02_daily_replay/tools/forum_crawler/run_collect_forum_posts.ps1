@@ -92,6 +92,7 @@ $CollectFailedText = -join ([char[]](25910,38598,22833,36133))
 $CollectDoneText = -join ([char[]](25910,38598,23436,25104,65306))
 $TargetUnitText = -join ([char[]](20010,30446,26631))
 $TodaySummaryName = (-join ([char[]](20170,26085,27719,24635))) + ".md"
+$ReaderDashboardName = (-join ([char[]](39640,25163,21457,35328,38405,35835,30475,26495))) + ".html"
 
 $StartCollectPattern = "^" + [regex]::Escape($StartCollectText) + "(.+)$"
 $CollectFailedPattern = [regex]::Escape($CollectFailedText) + "|failed:"
@@ -280,6 +281,11 @@ if (Test-Path -LiteralPath $ReportsRoot) {
 $TodaySummary = Join-Path $CloudRoot $TodaySummaryName
 if (Test-Path -LiteralPath $TodaySummary) {
     Write-Host "Today summary: $TodaySummary"
+}
+
+$ReaderDashboard = Join-Path $CloudRoot $ReaderDashboardName
+if (Test-Path -LiteralPath $ReaderDashboard) {
+    Write-Host "Reader dashboard: $ReaderDashboard"
 }
 
 Write-Host "Log file: $LogPath"

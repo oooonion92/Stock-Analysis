@@ -34,6 +34,7 @@ DEFAULT_INDEX = "sh000001"
 DEFAULT_SYMBOLS = ["sz002463", "sh603078", "sh600522"]
 DEFAULT_OUT_DIR = REPLAY_ROOT / "plans"
 DEFAULT_CONFIG = REPLAY_ROOT / "plans" / "watchlist_config.json"
+DEFAULT_CLOUD_HTML_DIR = Path(r"D:\OneDrive\Stock\Daily review")
 MOMENTUM_AREA_FLOOR = 0.0001001
 
 THEME_GROUPS = [
@@ -2547,6 +2548,7 @@ def main() -> int:
     parser.add_argument("--symbols", nargs="*", default=DEFAULT_SYMBOLS, help="Stock symbols.")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="Optional watchlist/position JSON config.")
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR, help="Output directory.")
+    parser.add_argument("--html-out-dir", type=Path, default=DEFAULT_CLOUD_HTML_DIR, help="Optional cloud directory for dashboard HTML.")
     parser.add_argument("--json", action="store_true", help="Also print compact JSON to stdout.")
     args = parser.parse_args()
 
@@ -2567,15 +2569,23 @@ def main() -> int:
     md_path = args.out_dir / f"{date_slug}_chanlun_replay_plan.md"
     json_path = args.out_dir / f"{date_slug}_chanlun_replay_plan.json"
     html_path = args.out_dir / f"{date_slug}_chanlun_dashboard.html"
-    md_path.write_text(render_report(data), encoding="utf-8-sig")
+    cloud_html_path = args.html_out_dir / f"{date_slug}_每日复盘.html" if args.html_out_dir else None
+    report_text = render_report(data)
+    dashboard_html = render_dashboard_html(data)
+    md_path.write_text(report_text, encoding="utf-8-sig")
     json_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    html_path.write_text(render_dashboard_html(data), encoding="utf-8-sig")
+    html_path.write_text(dashboard_html, encoding="utf-8-sig")
+    if cloud_html_path:
+        cloud_html_path.parent.mkdir(parents=True, exist_ok=True)
+        cloud_html_path.write_text(dashboard_html, encoding="utf-8-sig")
 
     print(f"wrote {md_path}")
     print(f"wrote {json_path}")
     print(f"wrote {html_path}")
+    if cloud_html_path:
+        print(f"wrote {cloud_html_path}")
     if args.json:
-        print(json.dumps({"markdown": str(md_path), "json": str(json_path), "html": str(html_path), "date": data["date"]}, ensure_ascii=False))
+        print(json.dumps({"markdown": str(md_path), "json": str(json_path), "html": str(html_path), "cloud_html": str(cloud_html_path) if cloud_html_path else None, "date": data["date"]}, ensure_ascii=False))
     return 0
 
 

@@ -7,7 +7,7 @@ import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
@@ -128,7 +128,14 @@ def dedupe(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return result
 
 
-def crawl(user_id_or_url: str, author_name: str, pages: int, delay: float, headless: bool) -> list[dict[str, Any]]:
+def crawl(
+    user_id_or_url: str,
+    author_name: str,
+    pages: int,
+    delay: float,
+    headless: bool,
+    exists_checker: Callable[[dict[str, Any]], bool] | None = None,
+) -> list[dict[str, Any]]:
     user_id = extract_user_id(user_id_or_url)
     profile_url = normalize_profile_url(user_id_or_url)
     records: list[dict[str, Any]] = []
@@ -144,8 +151,16 @@ def crawl(user_id_or_url: str, author_name: str, pages: int, delay: float, headl
         page = context.pages[0] if context.pages else context.new_page()
         page.goto(profile_url, wait_until="domcontentloaded", timeout=30000)
         page.wait_for_timeout(3000)
-        for _ in range(max(1, pages)):
-            records.extend(parse_items(page.content(), profile_url, user_id, author_name))
+        seen: set[str] = set()
+        for page_no in range(1, max(1, pages) + 1):
+            page_records = dedupe(parse_items(page.content(), profile_url, user_id, author_name))
+            unseen_records = [record for record in page_records if record["post_id"] not in seen]
+            if unseen_records and exists_checker and all(exists_checker(record) for record in unseen_records):
+                print(f"虎扑用户 {user_id} 第 {page_no} 轮：{len(unseen_records)} 条候选回帖均已存在，停止继续滚动")
+                break
+            for record in unseen_records:
+                seen.add(record["post_id"])
+                records.append(record)
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             page.wait_for_timeout(int(delay * 1000))
             time.sleep(delay)
