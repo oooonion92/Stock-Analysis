@@ -30,8 +30,9 @@ from chanlun_v10_20_core import (
 
 DATA_DIR = Path(r"D:\OneDrive\Stock\details")
 REPLIES_DIR = Path(r"D:\OneDrive\Stock\Replies collect")
+DAILY_REVIEW_DIR = Path(r"D:\OneDrive\Stock\Daily review")
 DEFAULT_INDEX = "sh000001"
-DEFAULT_SYMBOLS = ["sz002463", "sh603078", "sh600522"]
+DEFAULT_SYMBOLS: list[str] = []
 DEFAULT_OUT_DIR = REPLAY_ROOT / "plans"
 DEFAULT_CONFIG = REPLAY_ROOT / "plans" / "watchlist_config.json"
 MOMENTUM_AREA_FLOOR = 0.0001001
@@ -1113,14 +1114,15 @@ def concise_action_card(
     if is_index:
         pos = center_position(close, center)
         slope_text = "向上修复" if state30.get("dif_slope_12", 0) > 0 else "继续走弱"
-        action_paths = index_action_paths(report)
+        judgment = report.get("judgment") or {}
+        action_paths = final_index_action_paths(report, judgment)
         red_gate = action_paths["red"]["title"].replace("红色路径：", "")
         yellow_gate = action_paths["yellow"]["title"].replace("黄色路径：", "")
         blue_gate = action_paths["blue"]["title"].replace("蓝色路径：", "")
-        lines.append(f"{report['symbol']}：{gate_plain_text(index_gate, report.get('current') or {}, center)}")
-        lines.append(
-            f"今日结构：收盘 {price(close)}，位置在5m{pos}，30m DIF{slope_text}。"
-        )
+        summary_text = str(judgment.get("summary") or "").strip()
+        structure_text = str(judgment.get("structure") or "").strip()
+        lines.append(f"{report['symbol']}：{summary_text or gate_plain_text(index_gate, report.get('current') or {}, center)}")
+        lines.append(f"今日结构：{structure_text or f'收盘 {price(close)}，位置在5m{pos}，30m DIF{slope_text}。'}")
         lines.append(
             f"明日总闸：{red_gate}，风险降级；{yellow_gate}，只做验证；{blue_gate}，全场转防守。"
         )
@@ -1333,7 +1335,8 @@ def render_report(data: dict[str, Any]) -> str:
     stocks = data["stocks"]
     index_gate = gate_state(index["current"])
     idx_center = index["geometry_5m"]["center"]
-    action_paths = index_action_paths(index)
+    index["judgment"] = data.get("index_judgment") or {}
+    action_paths = final_index_action_paths(index, data.get("index_judgment"))
     lines: list[str] = []
     lines.append(f"# {data['date']} 缠论四层复盘与次日预案")
     lines.append("")
@@ -1410,6 +1413,8 @@ def render_report(data: dict[str, Any]) -> str:
         down = report["geometry_5m"]["down_area"]
         rel = report.get("relative_strength") or {}
         exec_state = report["execution"]
+        judgment = (data.get("stock_judgments") or {}).get(report["symbol"]) or {}
+        report["judgment"] = judgment
         lines.append(f"### {report['symbol']}")
         lines.append("")
         lines.append("```text")
@@ -1577,32 +1582,44 @@ def read_expert_dashboard(report_date: str, base_dir: Path = REPLIES_DIR) -> dic
 
 
 def markdown_blocks(raw: str) -> list[dict[str, str]]:
-    parts = re.split(r"(?m)^##\s+\d+\.\s+", raw)
     result: list[dict[str, str]] = []
-    for part in parts[1:]:
-        lines = part.splitlines()
-        if not lines:
-            continue
-        source = lines[0].strip()
-        text = "\n".join(lines[1:]).strip()
-        time_match = re.search(r"- 时间：(.+)", text)
-        link_match = re.search(r"- 链接：(\S+)", text)
-        body = re.split(r"- 链接：\S+", text, maxsplit=1)
-        body_text = body[1].strip() if len(body) > 1 else text
-        result.append(
-            {
-                "source": source,
-                "time": time_match.group(1).strip() if time_match else "",
-                "url": link_match.group(1).strip() if link_match else "",
-                "body": body_text,
-            }
+    author_blocks = re.finditer(
+        r"(?ms)^###\s+(.+?)\n(.*?)(?=^###\s+|\Z)",
+        raw,
+    )
+    for author_block in author_blocks:
+        source = author_block.group(1).strip()
+        author_text = author_block.group(2)
+        entry_blocks = re.finditer(
+            r"(?ms)^####\s+\d+\.\s+(.+?)\n(.*?)(?=^####\s+\d+\.|\Z)",
+            author_text,
         )
+        for entry_block in entry_blocks:
+            heading_time = entry_block.group(1).strip()
+            body_text = entry_block.group(2).strip()
+            meta_match = re.search(
+                r"^>\s*([0-9:\-\s]+)\s*｜.*?\[查看原帖\]\((https?://[^\s)]+)\)",
+                body_text,
+                flags=re.M,
+            )
+            body = re.sub(r"(?m)^>\s.*$", "", body_text)
+            body = re.sub(r"(?m)^\*\*速览：\*\*\s*", "", body)
+            body = re.sub(r"(?m)^---\s*$", "", body)
+            body = body.strip()
+            result.append(
+                {
+                    "source": source,
+                    "time": (meta_match.group(1).strip() if meta_match else heading_time),
+                    "url": meta_match.group(2).strip() if meta_match else "",
+                    "body": body,
+                }
+            )
     return result
 
 
 def useful_quote_from_body(body: str) -> str:
     keywords = ["AI", "科技", "涨价", "半导体", "PCB", "CPO", "光模块", "锂", "指数", "熊", "老登", "主线", "核心", "仓位", "不买", "保护", "调仓", "频繁交易", "震荡"]
-    noise = ["大道老师好", "查看图片", "回复", "无标题"]
+    noise = ["大道老师好", "查看图片", "回复", "无标题", "朋友发的", "谢谢你啊", "我去康康怎么个事", "在哪赚一个点都是一样的"]
     lines = [
         line.strip()
         for line in body.splitlines()
@@ -1610,6 +1627,8 @@ def useful_quote_from_body(body: str) -> str:
         and not line.strip().startswith("$")
         and line.strip() not in {"回复", "查看图片", "//"}
         and not line.strip().startswith("@")
+        and not line.strip().startswith("Reply to ")
+        and not line.strip().startswith("引用：")
         and not any(item in line.strip() for item in noise)
     ]
     if not lines:
@@ -1666,12 +1685,13 @@ def read_expert_markdown_digest(report_date: str, base_dir: Path = REPLIES_DIR) 
     if not path.exists():
         return {}
     raw = path.read_text(encoding="utf-8-sig")
-    updated_match = re.search(r"- 更新时间：(.+)", raw)
+    updated_match = re.search(r"更新时间：([^\n]+)", raw)
     updated_at = updated_match.group(1).strip() if updated_match else ""
     if str(report_date) not in updated_at:
         return {}
     keywords = ["AI", "科技", "涨价", "半导体", "PCB", "CPO", "光模块", "锂", "指数", "熊", "老登", "主线", "核心", "仓位", "不买", "保护", "调仓", "频繁交易", "震荡"]
     quotes = []
+    seen_quotes: set[tuple[str, str]] = set()
     for block in markdown_blocks(raw):
         body = block["body"]
         if not any(key in body for key in keywords):
@@ -1679,6 +1699,10 @@ def read_expert_markdown_digest(report_date: str, base_dir: Path = REPLIES_DIR) 
         quote = useful_quote_from_body(body)
         if not quote or len(quote) < 8:
             continue
+        dedupe_key = (block["source"], quote)
+        if dedupe_key in seen_quotes:
+            continue
+        seen_quotes.add(dedupe_key)
         tag, takeaway, action = quote_reading(body)
         quotes.append(
             {
@@ -1712,23 +1736,31 @@ def read_expert_markdown_digest(report_date: str, base_dir: Path = REPLIES_DIR) 
             "09:30-10:00 不追买，等承接或放量确认。",
             "全A题材文件缺失时，题材生态不使用旧数据冒充。"
         ],
-        "selection_rule": "临时从今日汇总中筛选能对应主线、风险、仓位和明日动作的摘录；正式复盘仍建议补生成今日总结看板。",
+        "selection_rule": "复盘直接从今日汇总中筛选能对应主线、风险、仓位和明日动作的摘录；若已有今日总结看板，只作为辅助参考，不作为前置依赖。",
         "quotes": quotes,
     }
 
 
-def merged_expert_digest(config_digest: dict[str, Any], report_date: str) -> dict[str, Any]:
+def merged_expert_digest(config_digest: dict[str, Any], report_date: str, curated_digest: dict[str, Any] | None = None) -> dict[str, Any]:
+    markdown_digest = read_expert_markdown_digest(report_date)
     dashboard_digest = read_expert_dashboard(report_date)
-    if not dashboard_digest:
-        updated_at = str((config_digest or {}).get("updated_at") or "")
-        if str(report_date) in updated_at:
-            return config_digest or {}
-        markdown_digest = read_expert_markdown_digest(report_date)
-        if markdown_digest:
-            return markdown_digest
+    config_updated_at = str((config_digest or {}).get("updated_at") or "")
+    config_matches = str(report_date) in config_updated_at
+    curated = curated_digest or {}
+    curated_updated_at = str(curated.get("updated_at") or curated.get("date") or "")
+    curated_matches = bool(curated) and (not curated_updated_at or str(report_date) in curated_updated_at)
+    if not markdown_digest and not dashboard_digest and not config_matches and not curated_matches:
         return {}
-    merged = dict(config_digest or {})
-    merged.update({key: value for key, value in dashboard_digest.items() if value not in (None, "", [])})
+
+    merged = dict(dashboard_digest or {})
+    if markdown_digest:
+        merged.update({key: value for key, value in markdown_digest.items() if value not in (None, "", [])})
+    if config_matches:
+        merged.update({key: value for key, value in (config_digest or {}).items() if value not in (None, "", [])})
+    if curated_matches:
+        merged.update({key: value for key, value in curated.items() if value not in (None, "", [])})
+    if dashboard_digest:
+        merged.setdefault("source_reference_dashboard", dashboard_digest.get("source_dashboard") or dashboard_digest.get("source"))
     return merged
 
 
@@ -1797,6 +1829,9 @@ def stock_plan_text(report: dict[str, Any], index_gate: str, position: dict[str,
 
 
 def dashboard_stock_summary_text(report: dict[str, Any], action: str) -> str:
+    judgment = report.get("judgment") or {}
+    if judgment.get("summary"):
+        return str(judgment.get("summary"))
     center = report.get("geometry_5m", {}).get("center")
     close = safe_float(report.get("day", {}).get("close"))
     pos = center_position(close, center)
@@ -1813,6 +1848,9 @@ def dashboard_stock_summary_text(report: dict[str, Any], action: str) -> str:
 
 
 def dashboard_stock_structure_text(report: dict[str, Any]) -> str:
+    judgment = report.get("judgment") or {}
+    if judgment.get("structure"):
+        return str(judgment.get("structure"))
     center = report.get("geometry_5m", {}).get("center") or {}
     zd = safe_float(center.get("ZD"))
     zg = safe_float(center.get("ZG"))
@@ -1830,6 +1868,9 @@ def dashboard_stock_theme_plan_text(
     position: dict[str, Any],
     reason: str,
 ) -> str:
+    judgment = report.get("judgment") or {}
+    if judgment.get("theme_plan"):
+        return str(judgment.get("theme_plan"))
     theme = report.get("theme_attribution") or {}
     lines = concise_action_card(report, index_gate=index_gate, position=position)
     plan = " ".join(lines[2:4])
@@ -2174,6 +2215,7 @@ def render_dashboard_market_overview(
     index_gate: str,
     ecology: dict[str, Any],
     action_paths: dict[str, dict[str, Any]],
+    judgment: dict[str, Any] | None = None,
 ) -> str:
     center = index.get("geometry_5m", {}).get("center")
     day = index.get("day") or {}
@@ -2190,8 +2232,21 @@ def render_dashboard_market_overview(
         "yellow": "只做承接验证，等5m二买/三买或回踩确认。",
         "blue": "新增买点降级，先防守，等指数重新收回近端结构。",
     }.get(index_gate, "先看指数中枢位置和承接质量。")
-    if close is not None and zd is not None and zg is not None and close < zd:
+    if judgment and judgment.get("summary"):
+        gate_text = str(judgment.get("summary"))
+    if judgment and judgment.get("structure"):
+        structure_text = str(judgment.get("structure"))
+    elif close is not None and zd is not None and zg is not None and close < zd:
         structure_text = f"上证收 {price(close)}，落在5m{pos}，先看能否收回 {price(zd)}；收不回就仍是弱修复。30m DIF {price(dif, 3)}，斜率{slope_text}，不按反转处理。"
+    elif close is not None and zg is not None and close > zg:
+        red_title = str((action_paths.get("red") or {}).get("title") or "").replace("红色路径：", "")
+        yellow_title = str((action_paths.get("yellow") or {}).get("title") or "").replace("黄色路径：", "")
+        blue_title = str((action_paths.get("blue") or {}).get("title") or "").replace("蓝色路径：", "")
+        structure_text = (
+            f"上证收 {price(close)}，已处在向上离开段里；先看 {yellow_title}，"
+            f"确认后再看 {red_title}。若转成 {blue_title}，才说明这段离开失败。"
+            f"30m DIF {price(dif, 3)}，斜率{slope_text}，第一观察点不再是老中枢上沿。"
+        )
     elif zd is not None and zg is not None:
         structure_text = f"上证收 {price(close)}，落在5m{pos}；站上 {price(zg)} 才转强，跌破 {price(zd)} 转防守。30m DIF {price(dif, 3)}，斜率{slope_text}，先看承接质量。"
     else:
@@ -2226,6 +2281,7 @@ def render_stock_card(report: dict[str, Any], index_gate: str) -> str:
     action, reason = classify_symbol(report, index_gate, pos)
     symbol = report["symbol"]
     name = pos.get("name") or symbol
+    judgment = report.get("judgment") or {}
     exec_state = report.get("execution") or {}
     geo = report.get("geometry_5m") or {}
     close = safe_float(report.get("day", {}).get("close"))
@@ -2238,6 +2294,7 @@ def render_stock_card(report: dict[str, Any], index_gate: str) -> str:
         f"{symbol} {name}：交易类型：{trade_type(pos)}；执行结论：{action_label(action)}。"
         f"收在5m{pos_label}，30m DIF{slope_text}，VWAP偏离 {pct(vwap_dev)}。"
     )
+    takeaway = str(judgment.get("takeaway") or "").strip() or takeaway
     title = f"{symbol} {name}" if name != symbol else symbol
     return f"""
     <article class="stock-card {css_class_for_action(action)}">
@@ -2273,7 +2330,8 @@ def render_dashboard_html(data: dict[str, Any]) -> str:
     index_gate = gate_state(index["current"])
     positions = data.get("positions") or {}
     market_ecology = data.get("market_ecology") or {}
-    action_paths = index_action_paths(index)
+    index["judgment"] = data.get("index_judgment") or {}
+    action_paths = final_index_action_paths(index, data.get("index_judgment"))
     theme_by_symbol = {
         normalize_symbol(str(row.get("code"))): row
         for row in (market_ecology.get("focus_stocks") or [])
@@ -2282,9 +2340,10 @@ def render_dashboard_html(data: dict[str, Any]) -> str:
     for report in stocks:
         report["position"] = positions.get(report["symbol"]) or {}
         report["theme_attribution"] = theme_by_symbol.get(report["symbol"]) or {}
+        report["judgment"] = (data.get("stock_judgments") or {}).get(report["symbol"]) or {}
     ranked = sorted(stocks, key=lambda r: action_rank(classify_symbol(r, index_gate, r.get("position") or {})[0]))
 
-    market_overview_html = render_dashboard_market_overview(index, index_gate, market_ecology, action_paths)
+    market_overview_html = render_dashboard_market_overview(index, index_gate, market_ecology, action_paths, data.get("index_judgment"))
     market_ecology_html = render_dashboard_market_ecology(market_ecology)
     expert_digest_html = render_dashboard_expert_digest(data.get("expert_digest") or {})
     expert_quotes_html = render_dashboard_expert_quotes(data.get("expert_digest") or {})
@@ -2494,6 +2553,85 @@ def load_config(path: Path | None) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8-sig"))
 
 
+def load_daily_expert_digest(report_date: str, base_dir: Path) -> dict[str, Any]:
+    date_slug = str(report_date).replace("-", "")
+    path = base_dir / f"{date_slug}_expert_digest.json"
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8-sig"))
+    if not isinstance(data, dict):
+        return {}
+    updated_at = str(data.get("updated_at") or data.get("date") or "")
+    if updated_at and str(report_date) not in updated_at:
+        return {}
+    data.setdefault("source", str(path))
+    return data
+
+
+def load_daily_index_judgment(report_date: str, base_dir: Path) -> dict[str, Any]:
+    date_slug = str(report_date).replace("-", "")
+    path = base_dir / f"{date_slug}_index_judgment.json"
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8-sig"))
+    if not isinstance(data, dict):
+        return {}
+    updated_at = str(data.get("updated_at") or data.get("date") or "")
+    if updated_at and str(report_date) not in updated_at:
+        return {}
+    data.setdefault("source", str(path))
+    return data
+
+
+def load_daily_stock_judgments(report_date: str, base_dir: Path) -> dict[str, dict[str, Any]]:
+    date_slug = str(report_date).replace("-", "")
+    path = base_dir / f"{date_slug}_stock_judgments.json"
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8-sig"))
+    if not isinstance(data, dict):
+        return {}
+    updated_at = str(data.get("updated_at") or data.get("date") or "")
+    if updated_at and str(report_date) not in updated_at:
+        return {}
+    judgments = data.get("judgments") or {}
+    result: dict[str, dict[str, Any]] = {}
+    for symbol, item in judgments.items():
+        if isinstance(item, dict):
+            normalized = normalize_symbol(str(symbol))
+            result[normalized] = dict(item)
+            result[normalized].setdefault("source", str(path))
+    return result
+
+
+def normalize_action_paths(action_paths: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    result: dict[str, dict[str, Any]] = {}
+    for key, label in [("red", "红色路径"), ("yellow", "黄色路径"), ("blue", "蓝色路径")]:
+        item = (action_paths or {}).get(key) or {}
+        title = str(item.get("title") or "").strip()
+        if title and "路径：" not in title:
+            title = f"{label}：{title}"
+        result[key] = {
+            "title": title or f"{label}：待判断",
+            "items": [str(x) for x in (item.get("items") or []) if str(x).strip()],
+        }
+    return result
+
+
+def final_index_action_paths(index: dict[str, Any], judgment: dict[str, Any] | None = None) -> dict[str, dict[str, Any]]:
+    if judgment and isinstance(judgment.get("paths"), dict):
+        return normalize_action_paths(judgment.get("paths"))
+    return index_action_paths(index)
+
+
+def write_daily_review_html(report_date: str, html: str, base_dir: Path = DAILY_REVIEW_DIR) -> Path:
+    base_dir.mkdir(parents=True, exist_ok=True)
+    date_slug = str(report_date).replace("-", "")
+    path = base_dir / f"{date_slug}_每日复盘.html"
+    path.write_text(html, encoding="utf-8-sig")
+    return path
+
+
 def config_symbols(config: dict[str, Any]) -> list[str]:
     items = config.get("symbols")
     if not items:
@@ -2547,35 +2685,46 @@ def main() -> int:
     parser.add_argument("--symbols", nargs="*", default=DEFAULT_SYMBOLS, help="Stock symbols.")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG, help="Optional watchlist/position JSON config.")
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR, help="Output directory.")
+    parser.add_argument("--daily-review-dir", type=Path, default=DAILY_REVIEW_DIR, help="Cloud reading HTML output directory.")
     parser.add_argument("--json", action="store_true", help="Also print compact JSON to stdout.")
     args = parser.parse_args()
 
     config = load_config(args.config)
     index = config.get("index", args.index)
     symbols = config_symbols(config) if config else args.symbols
+    if not symbols:
+        symbols = args.symbols
+    if not symbols:
+        parser.error("No replay symbols configured. Update watchlist_config.json or pass --symbols.")
     data = build_data(index, symbols)
     positions = config_positions(config)
     data["config_path"] = str(args.config) if args.config else None
     data["positions"] = positions
     data["account"] = config.get("account", {})
     data["market_context"] = config_market_context(config, data["date"])
-    data["expert_digest"] = merged_expert_digest(config.get("expert_digest", {}), data["date"])
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    curated_digest = load_daily_expert_digest(data["date"], args.out_dir)
+    data["index_judgment"] = load_daily_index_judgment(data["date"], args.out_dir)
+    data["stock_judgments"] = load_daily_stock_judgments(data["date"], args.out_dir)
+    data["expert_digest"] = merged_expert_digest(config.get("expert_digest", {}), data["date"], curated_digest)
     focus_symbols = sorted(set(symbols) | set(positions.keys()))
     data["market_ecology"] = build_market_ecology(data["date"], focus_symbols)
-    args.out_dir.mkdir(parents=True, exist_ok=True)
     date_slug = str(data["date"]).replace("-", "")
     md_path = args.out_dir / f"{date_slug}_chanlun_replay_plan.md"
     json_path = args.out_dir / f"{date_slug}_chanlun_replay_plan.json"
     html_path = args.out_dir / f"{date_slug}_chanlun_dashboard.html"
+    html_content = render_dashboard_html(data)
     md_path.write_text(render_report(data), encoding="utf-8-sig")
     json_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    html_path.write_text(render_dashboard_html(data), encoding="utf-8-sig")
+    html_path.write_text(html_content, encoding="utf-8-sig")
+    daily_review_path = write_daily_review_html(data["date"], html_content, args.daily_review_dir)
 
     print(f"wrote {md_path}")
     print(f"wrote {json_path}")
     print(f"wrote {html_path}")
+    print(f"wrote {daily_review_path}")
     if args.json:
-        print(json.dumps({"markdown": str(md_path), "json": str(json_path), "html": str(html_path), "date": data["date"]}, ensure_ascii=False))
+        print(json.dumps({"markdown": str(md_path), "json": str(json_path), "html": str(html_path), "daily_review_html": str(daily_review_path), "date": data["date"]}, ensure_ascii=False))
     return 0
 
 
