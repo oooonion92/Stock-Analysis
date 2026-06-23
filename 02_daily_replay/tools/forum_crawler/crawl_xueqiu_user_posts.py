@@ -6,7 +6,7 @@ import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
@@ -156,8 +156,27 @@ def dedupe(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return result
 
 
-def crawl_feed(author_name: str, pages: int, delay: float, headless: bool) -> list[dict[str, Any]]:
+def extract_feed_records(captured: list[Any], author_name: str) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for entry in captured:
+        url = entry.get("url", "") if isinstance(entry, dict) else ""
+        payload = entry.get("payload", entry) if isinstance(entry, dict) else entry
+        if "home_timeline" not in url or "source=user" not in url:
+            continue
+        records.extend(extract_from_payload(payload, "following", author_name or "雪球关注流", HOME_URL))
+    return dedupe(records)
+
+
+def crawl_feed(
+    author_name: str,
+    pages: int,
+    delay: float,
+    headless: bool,
+    exists_checker: Callable[[dict[str, Any]], bool] | None = None,
+) -> list[dict[str, Any]]:
     captured: list[Any] = []
+    records: list[dict[str, Any]] = []
+    seen: set[str] = set()
     with sync_playwright() as p:
         context = p.chromium.launch_persistent_context(
             user_data_dir=str(PROFILE_DIR),
@@ -172,23 +191,33 @@ def crawl_feed(author_name: str, pages: int, delay: float, headless: bool) -> li
         page.wait_for_timeout(4000)
 
         for page_no in range(1, pages + 1):
+            page_records = extract_feed_records(captured, author_name)
+            unseen_records = [record for record in page_records if str(record.get("id") or record.get("url") or record.get("content")) not in seen]
+            if unseen_records and exists_checker and all(exists_checker(record) for record in unseen_records):
+                print(f"雪球关注流第 {page_no} 轮：{len(unseen_records)} 条候选发言均已存在，停止继续滚动")
+                break
+            for record in unseen_records:
+                seen.add(str(record.get("id") or record.get("url") or record.get("content")))
+                records.append(record)
+            captured.clear()
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             page.wait_for_timeout(int(delay * 1000))
 
         context.close()
 
-    records: list[dict[str, Any]] = []
-    for entry in captured:
-        url = entry.get("url", "") if isinstance(entry, dict) else ""
-        payload = entry.get("payload", entry) if isinstance(entry, dict) else entry
-        if "home_timeline" not in url or "source=user" not in url:
-            continue
-        records.extend(extract_from_payload(payload, "following", author_name or "雪球关注流", HOME_URL))
-    print(f"雪球关注流：提取 {len(dedupe(records))} 条候选发言")
-    return dedupe(records)
+    records = dedupe(records)
+    print(f"雪球关注流：提取 {len(records)} 条候选发言")
+    return records
 
 
-def crawl_user_timeline(user_id_or_url: str, author_name: str, pages: int, delay: float, headless: bool) -> list[dict[str, Any]]:
+def crawl_user_timeline(
+    user_id_or_url: str,
+    author_name: str,
+    pages: int,
+    delay: float,
+    headless: bool,
+    exists_checker: Callable[[dict[str, Any]], bool] | None = None,
+) -> list[dict[str, Any]]:
     user_id = extract_user_id(user_id_or_url)
     user_url = normalize_user_url(user_id_or_url)
     captured: list[Any] = []
@@ -206,7 +235,10 @@ def crawl_user_timeline(user_id_or_url: str, author_name: str, pages: int, delay
         page.goto(user_url, wait_until="domcontentloaded", timeout=30000)
         page.wait_for_timeout(3000)
 
+        seen: set[str] = set()
+        records: list[dict[str, Any]] = []
         for page_no in range(1, pages + 1):
+            captured.clear()
             for api_url in (
                 f"https://xueqiu.com/statuses/user_timeline.json?user_id={user_id}&page={page_no}&count=20",
                 f"https://xueqiu.com/v4/statuses/user_timeline.json?user_id={user_id}&page={page_no}&count=20",
@@ -216,22 +248,37 @@ def crawl_user_timeline(user_id_or_url: str, author_name: str, pages: int, delay
                     page.wait_for_timeout(800)
                 except Exception:
                     pass
+            page_records: list[dict[str, Any]] = []
+            for entry in captured:
+                payload = entry.get("payload", entry) if isinstance(entry, dict) else entry
+                page_records.extend(extract_from_payload(payload, user_id, author_name, user_url))
+            page_records = dedupe(page_records)
+            unseen_records = [record for record in page_records if str(record.get("id") or record.get("url") or record.get("content")) not in seen]
+            if unseen_records and exists_checker and all(exists_checker(record) for record in unseen_records):
+                print(f"雪球用户 {user_id} 第 {page_no} 页：{len(unseen_records)} 条候选发言均已存在，停止继续翻页")
+                break
+            for record in unseen_records:
+                seen.add(str(record.get("id") or record.get("url") or record.get("content")))
+                records.append(record)
             time.sleep(delay)
         context.close()
 
-    records: list[dict[str, Any]] = []
-    for entry in captured:
-        payload = entry.get("payload", entry) if isinstance(entry, dict) else entry
-        records.extend(extract_from_payload(payload, user_id, author_name, user_url))
     print(f"雪球用户 {user_id}：提取 {len(dedupe(records))} 条候选发言")
     return dedupe(records)
 
 
-def crawl(user_id_or_url: str, author_name: str, pages: int, delay: float, headless: bool) -> list[dict[str, Any]]:
+def crawl(
+    user_id_or_url: str,
+    author_name: str,
+    pages: int,
+    delay: float,
+    headless: bool,
+    exists_checker: Callable[[dict[str, Any]], bool] | None = None,
+) -> list[dict[str, Any]]:
     user_id = extract_user_id(user_id_or_url)
     if user_id.lower() in FEED_ALIASES or user_id == "following":
-        return crawl_feed(author_name, pages, delay, headless)
-    return crawl_user_timeline(user_id_or_url, author_name, pages, delay, headless)
+        return crawl_feed(author_name, pages, delay, headless, exists_checker=exists_checker)
+    return crawl_user_timeline(user_id_or_url, author_name, pages, delay, headless, exists_checker=exists_checker)
 
 
 def main() -> int:

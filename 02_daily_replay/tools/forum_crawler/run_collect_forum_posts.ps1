@@ -21,11 +21,17 @@ function Write-Section {
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Resolve-Path (Join-Path $ScriptDir "..\..\..")
 $Collector = Join-Path $ScriptDir "collect_forum_posts.py"
+$ReaderServer = Join-Path $ScriptDir "expert_reader_server.py"
 $CloudRoot = "D:\OneDrive\Stock\Replies collect"
 $LogRoot = Join-Path $CloudRoot "tool_logs"
+$ReaderServerPort = 8768
 
 if (-not (Test-Path -LiteralPath $Collector)) {
     throw "Cannot find collector script: $Collector"
+}
+
+if (-not (Test-Path -LiteralPath $ReaderServer)) {
+    throw "Cannot find reader server script: $ReaderServer"
 }
 
 if (-not (Test-Path -LiteralPath $LogRoot)) {
@@ -55,14 +61,14 @@ if (-not $Python) {
     throw "Cannot find Python. Expected bundled Codex runtime or system python."
 }
 
-$DefaultArgs = @("--retries", "20", "--retry-delay", "3", "--export-format", "both")
+$DefaultArgs = @("--retries", "20", "--retry-delay", "3", "--export-format", "jsonl")
 if ($CollectorArgs.Count -gt 0) {
     $RunArgs = $CollectorArgs
 } else {
     $RunArgs = $DefaultArgs
 }
 
-$Stamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$Stamp = Get-Date -Format "yyyyMMdd_HHmmss_fff"
 $LogPath = Join-Path $LogRoot "forum_collect_$Stamp.log"
 $WatchTargets = Join-Path $CloudRoot "watch_targets.csv"
 $TotalTargets = 0
@@ -92,6 +98,7 @@ $CollectFailedText = -join ([char[]](25910,38598,22833,36133))
 $CollectDoneText = -join ([char[]](25910,38598,23436,25104,65306))
 $TargetUnitText = -join ([char[]](20010,30446,26631))
 $TodaySummaryName = (-join ([char[]](20170,26085,27719,24635))) + ".md"
+$ReaderDashboardName = (-join ([char[]](39640,25163,21457,35328,38405,35835,30475,26495))) + ".html"
 
 $StartCollectPattern = "^" + [regex]::Escape($StartCollectText) + "(.+)$"
 $CollectFailedPattern = [regex]::Escape($CollectFailedText) + "|failed:"
@@ -139,6 +146,38 @@ function Close-CurrentTarget {
 function ConvertTo-CommandArgument {
     param([string]$Value)
     return '"' + ($Value -replace '"', '\"') + '"'
+}
+
+function Append-Utf8Line {
+    param(
+        [string]$Path,
+        [string]$Text
+    )
+
+    $Utf8 = [System.Text.UTF8Encoding]::new($false)
+    [System.IO.File]::AppendAllText($Path, $Text + [Environment]::NewLine, $Utf8)
+}
+
+function Test-TcpPortOpen {
+    param(
+        [string]$HostName,
+        [int]$Port
+    )
+
+    try {
+        $Client = [System.Net.Sockets.TcpClient]::new()
+        $Async = $Client.BeginConnect($HostName, $Port, $null, $null)
+        $Success = $Async.AsyncWaitHandle.WaitOne(500)
+        if (-not $Success) {
+            $Client.Close()
+            return $false
+        }
+        $Client.EndConnect($Async)
+        $Client.Close()
+        return $true
+    } catch {
+        return $false
+    }
 }
 
 function Process-CollectorLine {
@@ -200,6 +239,25 @@ Write-Host "Note: this tool reuses the existing browser_profile login state."
 Write-Host "It will not clear browser processes or cookies."
 Write-Host ""
 
+if (-not (Test-TcpPortOpen -HostName "127.0.0.1" -Port $ReaderServerPort)) {
+    $ReaderStdOut = Join-Path $LogRoot "expert_reader_server.stdout.log"
+    $ReaderStdErr = Join-Path $LogRoot "expert_reader_server.stderr.log"
+    $ReaderArgs = @("-u", $ReaderServer)
+    $ReaderArgumentList = ($ReaderArgs | ForEach-Object { ConvertTo-CommandArgument $_ }) -join " "
+    $ReaderProcess = Start-Process `
+        -FilePath $Python `
+        -ArgumentList $ReaderArgumentList `
+        -WorkingDirectory $ScriptDir `
+        -RedirectStandardOutput $ReaderStdOut `
+        -RedirectStandardError $ReaderStdErr `
+        -WindowStyle Hidden `
+        -PassThru
+    Start-Sleep -Milliseconds 800
+    Write-Host "Reader server started: http://127.0.0.1:$ReaderServerPort (PID: $($ReaderProcess.Id))"
+} else {
+    Write-Host "Reader server already running: http://127.0.0.1:$ReaderServerPort"
+}
+
 Push-Location $ScriptDir
 try {
     Write-Dashboard "Ready to start."
@@ -224,11 +282,11 @@ try {
     $SeenErr = 0
     while (-not $CrawlerProcess.HasExited) {
         foreach ($Line in (Read-NewLines -Path $StdOutPath -Seen ([ref]$SeenOut))) {
-            Add-Content -LiteralPath $LogPath -Value $Line -Encoding utf8
+            Append-Utf8Line -Path $LogPath -Text ([string]$Line)
             Process-CollectorLine $Line
         }
         foreach ($Line in (Read-NewLines -Path $StdErrPath -Seen ([ref]$SeenErr))) {
-            Add-Content -LiteralPath $LogPath -Value "[stderr] $Line" -Encoding utf8
+            Append-Utf8Line -Path $LogPath -Text ("[stderr] " + [string]$Line)
             Write-Dashboard "[stderr] $Line"
             Write-Host "[stderr] $Line"
         }
@@ -238,11 +296,11 @@ try {
     }
 
     foreach ($Line in (Read-NewLines -Path $StdOutPath -Seen ([ref]$SeenOut))) {
-        Add-Content -LiteralPath $LogPath -Value $Line -Encoding utf8
+        Append-Utf8Line -Path $LogPath -Text ([string]$Line)
         Process-CollectorLine $Line
     }
     foreach ($Line in (Read-NewLines -Path $StdErrPath -Seen ([ref]$SeenErr))) {
-        Add-Content -LiteralPath $LogPath -Value "[stderr] $Line" -Encoding utf8
+        Append-Utf8Line -Path $LogPath -Text ("[stderr] " + [string]$Line)
         Write-Dashboard "[stderr] $Line"
         Write-Host "[stderr] $Line"
     }
@@ -281,6 +339,12 @@ $TodaySummary = Join-Path $CloudRoot $TodaySummaryName
 if (Test-Path -LiteralPath $TodaySummary) {
     Write-Host "Today summary: $TodaySummary"
 }
+
+$ReaderDashboard = Join-Path $CloudRoot $ReaderDashboardName
+if (Test-Path -LiteralPath $ReaderDashboard) {
+    Write-Host "Reader dashboard: $ReaderDashboard"
+}
+Write-Host "Reader API: http://127.0.0.1:$ReaderServerPort"
 
 Write-Host "Log file: $LogPath"
 

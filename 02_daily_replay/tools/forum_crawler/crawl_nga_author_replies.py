@@ -6,7 +6,7 @@ import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlencode
 
 from bs4 import BeautifulSoup
@@ -527,6 +527,7 @@ def crawl(
     retries: int,
     retry_delay: float,
     headless: bool,
+    exists_checker: Callable[[dict[str, Any]], bool] | None = None,
 ) -> list[dict[str, Any]]:
     if not PROFILE_DIR.exists():
         raise SystemExit("还没有浏览器登录资料夹。请先运行 login_nga.py 并手动登录。")
@@ -558,6 +559,10 @@ def crawl(
                 continue
 
             records = extract_html_records(html, author_id, author_name, page_num)
+            if records and exists_checker and all(exists_checker(record) for record in records):
+                print(f"第 {page_num} 页：{len(records)} 条候选发言均已存在，停止继续翻页")
+                break
+
             enrich_records_with_detail_dates(page_obj, records, retries=retries, retry_delay=retry_delay)
             records.extend(
                 scan_active_threads_for_author(

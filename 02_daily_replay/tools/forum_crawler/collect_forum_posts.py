@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,6 +12,12 @@ from export_posts import OUTPUT_ROOT, export_all_posts
 from forum_paths import CLOUD_REPORTS_ROOT, CLOUD_ROOT, CLOUD_WATCH_TARGETS
 from forum_db import connect, list_enabled_targets
 from import_watch_targets import import_csv
+
+TOOLS_ROOT = Path(__file__).resolve().parents[1]
+if str(TOOLS_ROOT) not in sys.path:
+    sys.path.insert(0, str(TOOLS_ROOT))
+
+from render_expert_reader_board import parse_markdown, render_html
 
 
 REPORT_DIR = CLOUD_REPORTS_ROOT
@@ -45,11 +53,22 @@ def first_non_empty_line(value: str, max_chars: int = 90) -> str:
     return ""
 
 
+def post_author_name(row) -> str:
+    fallback = row["author_name"] or ""
+    if row["site_name"] != "雪球":
+        return fallback
+    try:
+        raw = json.loads(row["raw_json"] or "{}")
+    except json.JSONDecodeError:
+        return fallback
+    return str(raw.get("author") or fallback)
+
+
 def metadata_line(row) -> str:
     parts = [
         format_time(row["published_at"] or row["crawled_at"]),
         row["site_name"],
-        row["author_name"],
+        post_author_name(row),
     ]
     title = clean_title(row["title"])
     if title:
@@ -57,6 +76,40 @@ def metadata_line(row) -> str:
     if row["url"]:
         parts.append(f"[查看原帖]({row['url']})")
     return " ｜ ".join(parts)
+
+
+def post_date(row) -> str:
+    parsed = parse_post_time(row["published_at"] or row["crawled_at"])
+    if parsed:
+        return parsed.strftime("%Y-%m-%d")
+    value = str(row["published_at"] or row["crawled_at"] or "")
+    return value[:10] if len(value) >= 10 else "未知日期"
+
+
+def date_sort_key(value: str) -> tuple[int, datetime]:
+    try:
+        return (1, datetime.strptime(value, "%Y-%m-%d"))
+    except ValueError:
+        return (0, datetime.min)
+
+
+def author_anchor(style_index: int, source_index: int) -> str:
+    return f"author-{style_index}-{source_index}"
+
+
+def html_id(*parts: object) -> str:
+    raw = "-".join(str(part) for part in parts)
+    return "".join(ch if ch.isalnum() else "-" for ch in raw).strip("-").lower()
+
+
+def render_text_html(value: str) -> str:
+    return html.escape(value or "").replace("\n", "<br>")
+
+
+def should_show_preview(content: str, preview: str) -> bool:
+    if not preview:
+        return False
+    return not (content or "").lstrip().startswith(preview)
 
 
 def write_report(summary: list[dict], exported_paths: list[Path]) -> Path:
@@ -101,6 +154,7 @@ def write_export_index(exported_paths: list[Path]) -> Path:
         "# 高手发言导出索引",
         "",
         f"- 更新时间：{datetime.now().isoformat(timespec='seconds')}",
+        "- [高手发言阅读看板](高手发言阅读看板.html)",
         "",
     ]
     for style in sorted(grouped):
@@ -127,7 +181,13 @@ def parse_post_time(value: str) -> datetime | None:
     return None
 
 
-def fetch_posts_for_summary(conn, days: int | None = None, style: str | None = None, limit: int | None = None) -> list:
+def fetch_posts_for_summary(
+    conn,
+    days: int | None = None,
+    style: str | None = None,
+    limit: int | None = None,
+    target_date: str | None = None,
+) -> list:
     rows = list(
         conn.execute(
             """
@@ -148,6 +208,8 @@ def fetch_posts_for_summary(conn, days: int | None = None, style: str | None = N
     )
     if style:
         rows = [row for row in rows if row["style"] == style]
+    if target_date is not None:
+        rows = [row for row in rows if post_date(row) == target_date]
     if days is not None:
         cutoff = datetime.now() - timedelta(days=days)
         filtered = []
@@ -162,23 +224,32 @@ def fetch_posts_for_summary(conn, days: int | None = None, style: str | None = N
 
 
 def render_summary(title: str, rows) -> str:
-    lines = [
-        f"# {title}",
-        "",
-        f"> 更新时间：{datetime.now().isoformat(timespec='seconds')} ｜ records: {len(rows)}",
-        "",
-    ]
-
     grouped: dict[str, dict[str, list]] = {}
     for row in rows:
         style = row["style"] or "未分类"
         source = f"{row['site_name']} / {row['author_name']}"
         grouped.setdefault(style, {}).setdefault(source, []).append(row)
 
+    lines = [
+        f"# {title}",
+        "",
+        f"> 更新时间：{datetime.now().isoformat(timespec='seconds')} ｜ records: {len(rows)}",
+        "",
+    ]
+    if grouped:
+        lines.extend(["## 作者导航", ""])
+        for style_index, style in enumerate(sorted(grouped), 1):
+            links = []
+            for source_index, source in enumerate(sorted(grouped[style]), 1):
+                count = len(grouped[style][source])
+                links.append(f"[{source} ({count})](#{author_anchor(style_index, source_index)})")
+            lines.extend([f"**{style}**", "", " · ".join(links), ""])
+
     index = 1
-    for style in sorted(grouped):
+    for style_index, style in enumerate(sorted(grouped), 1):
         lines.extend([f"## {style}", ""])
-        for source in sorted(grouped[style]):
+        for source_index, source in enumerate(sorted(grouped[style]), 1):
+            lines.extend([f'<a id="{author_anchor(style_index, source_index)}"></a>', ""])
             lines.extend([f"### {source}", ""])
             for row in grouped[style][source]:
                 content = (row["content"] or "").strip()
@@ -192,7 +263,7 @@ def render_summary(title: str, rows) -> str:
                         f"> {metadata_line(row)}",
                     ]
                 )
-                if preview:
+                if should_show_preview(content, preview):
                     lines.extend(["", f"**速览：** {preview}"])
                 lines.extend(
                     [
@@ -211,18 +282,33 @@ def write_summary_files() -> list[Path]:
     CLOUD_ROOT.mkdir(parents=True, exist_ok=True)
     paths: list[Path] = []
     with connect() as conn:
+        today = datetime.now().strftime("%Y-%m-%d")
         specs = [
             ("今日汇总.md", "今日高手发言汇总", 1, None, 200),
             ("最近7天汇总.md", "最近7天高手发言汇总", 7, None, 500),
             ("趋势高手汇总.md", "趋势高手发言汇总", 14, "趋势", 500),
             ("短线高手汇总.md", "短线高手发言汇总", 14, "短线", 500),
         ]
-        for filename, title, days, style, limit in specs:
+        specs[0] = (specs[0][0], specs[0][1], None, specs[0][3], None, today)
+        specs[1] = (*specs[1], None)
+        specs[2] = (*specs[2], None)
+        specs[3] = (*specs[3], None)
+        for filename, title, days, style, limit, target_date in specs:
             path = CLOUD_ROOT / filename
-            rows = fetch_posts_for_summary(conn, days=days, style=style, limit=limit)
+            rows = fetch_posts_for_summary(conn, days=days, style=style, limit=limit, target_date=target_date)
             path.write_text(render_summary(title, rows), encoding="utf-8-sig")
             paths.append(path)
     return paths
+
+
+def write_reader_dashboard(days: int = 14, limit: int | None = None) -> Path:
+    path = CLOUD_ROOT / "高手发言阅读看板.html"
+    summary_path = CLOUD_ROOT / "今日汇总.md"
+    if not summary_path.exists():
+        raise FileNotFoundError(f"未找到汇总文件：{summary_path}")
+    board = parse_markdown(summary_path.read_text(encoding="utf-8-sig"))
+    path.write_text(render_html(board), encoding="utf-8")
+    return path
 
 
 def main() -> int:
@@ -235,7 +321,7 @@ def main() -> int:
     parser.add_argument("--retry-delay", type=float, default=3.0)
     parser.add_argument("--headed", action="store_true", help="显示浏览器窗口，便于排查登录状态。")
     parser.add_argument("--limit", type=int, help="导出每个高手最近 N 条；不填则导出全部。")
-    parser.add_argument("--export-format", default="both", choices=["md", "jsonl", "both"])
+    parser.add_argument("--export-format", default="jsonl", choices=["md", "jsonl", "both"])
     parser.add_argument("--skip-crawl", action="store_true", help="只从数据库导出，不访问网站。")
     parser.add_argument("--skip-watchlist-import", action="store_true", help="不从云端 watch_targets.csv 同步跟踪清单。")
     args = parser.parse_args()
@@ -311,10 +397,12 @@ def main() -> int:
     report_path = write_report(summary, exported_paths)
     index_path = write_export_index(exported_paths)
     summary_paths = write_summary_files()
+    dashboard_path = write_reader_dashboard()
 
     print(f"收集完成：{len(summary)} 个目标")
     print(f"导出文件：{len(exported_paths)} 个")
     print(f"汇总文件：{len(summary_paths)} 个")
+    print(f"阅读看板：{dashboard_path}")
     print(f"报告：{report_path}")
     print(f"索引：{index_path}")
     return 0

@@ -234,6 +234,34 @@ def content_hash(title: str, content: str) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def post_exists(conn: sqlite3.Connection, site_id: int, target_id: int, record: dict[str, Any]) -> bool:
+    title = str(record.get("title") or "")
+    content = str(record.get("content") or "")
+    external_post_id = str(record.get("post_id") or "")
+    url = str(record.get("url") or "")
+    record_hash = content_hash(title, content)
+
+    if external_post_id:
+        existing = conn.execute(
+            "SELECT id FROM posts WHERE site_id = ? AND external_post_id = ?",
+            (site_id, external_post_id),
+        ).fetchone()
+        if existing is not None:
+            return True
+    if url:
+        existing = conn.execute(
+            "SELECT id FROM posts WHERE site_id = ? AND url = ?",
+            (site_id, url),
+        ).fetchone()
+        if existing is not None:
+            return True
+    existing = conn.execute(
+        "SELECT id FROM posts WHERE site_id = ? AND target_id = ? AND content_hash = ?",
+        (site_id, target_id, record_hash),
+    ).fetchone()
+    return existing is not None
+
+
 def insert_posts(
     conn: sqlite3.Connection,
     site_id: int,

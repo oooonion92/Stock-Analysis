@@ -11,6 +11,7 @@ from forum_db import (
     insert_posts,
     list_enabled_targets,
     mark_target_crawled,
+    post_exists,
     start_run,
 )
 
@@ -21,6 +22,9 @@ def crawl_target(conn, target, args) -> tuple[int, int]:
     pages = args.pages if args.pages is not None else int(target["crawl_pages"])
 
     run_id = start_run(conn, int(target["site_id"]), int(target["id"]), pages)
+    site_id = int(target["site_id"])
+    target_id = int(target["id"])
+    exists_checker = lambda record: post_exists(conn, site_id, target_id, record)
     try:
         if site_type == "nga" and target_type in ("replies", "both"):
             records = crawl_nga_replies(
@@ -31,6 +35,7 @@ def crawl_target(conn, target, args) -> tuple[int, int]:
                 retries=args.retries,
                 retry_delay=args.retry_delay,
                 headless=not args.headed,
+                exists_checker=exists_checker,
             )
         elif site_type == "xueqiu" and target_type in ("feed", "posts", "both", "replies"):
             records = crawl_xueqiu_posts(
@@ -39,6 +44,7 @@ def crawl_target(conn, target, args) -> tuple[int, int]:
                 pages=pages,
                 delay=args.delay,
                 headless=not args.headed,
+                exists_checker=exists_checker,
             )
         elif site_type == "hupu" and target_type in ("replies", "both"):
             records = crawl_hupu_replies(
@@ -47,12 +53,13 @@ def crawl_target(conn, target, args) -> tuple[int, int]:
                 pages=pages,
                 delay=args.delay,
                 headless=not args.headed,
+                exists_checker=exists_checker,
             )
         else:
             raise RuntimeError(f"暂不支持的站点/目标类型：{site_type}/{target_type}")
 
-        posts_new = insert_posts(conn, int(target["site_id"]), int(target["id"]), records)
-        mark_target_crawled(conn, int(target["id"]))
+        posts_new = insert_posts(conn, site_id, target_id, records)
+        mark_target_crawled(conn, target_id)
         finish_run(conn, run_id, "success", posts_found=len(records), posts_new=posts_new)
         return len(records), posts_new
     except Exception as exc:
