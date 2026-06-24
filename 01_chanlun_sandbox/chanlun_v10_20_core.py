@@ -181,6 +181,21 @@ def compute_chanlun_original(data_df: pd.DataFrame) -> tuple[list[dict], list[di
 
     raw_bs_points: list[dict] = []
     traps: list[dict] = []
+
+    def previous_center(current_zs: dict) -> dict | None:
+        for idx, item in enumerate(cleaned_zs):
+            if item is current_zs:
+                return cleaned_zs[idx - 1] if idx > 0 else None
+        return None
+
+    def has_downtrend_context(current_zs: dict) -> bool:
+        prior = previous_center(current_zs)
+        return bool(prior and current_zs["ZG"] < prior["ZG"] and current_zs["ZD"] < prior["ZD"])
+
+    def has_uptrend_context(current_zs: dict) -> bool:
+        prior = previous_center(current_zs)
+        return bool(prior and current_zs["ZG"] > prior["ZG"] and current_zs["ZD"] > prior["ZD"])
+
     for i in range(4, len(valid_fractals)):
         f_curr = valid_fractals[i]
         applicable_zs = [z for z in cleaned_zs if z["start"] < f_curr["date"]]
@@ -192,6 +207,8 @@ def compute_chanlun_original(data_df: pd.DataFrame) -> tuple[list[dict], list[di
                     traps.append({"date": f_curr["date"], "val": f_curr["val"], "label": "诱空", "type": "Bottom"})
                 elif applicable_zs:
                     recent_z = applicable_zs[-1]
+                    if not has_downtrend_context(recent_z):
+                        continue
                     touch_fractals = [
                         f
                         for f in valid_fractals
@@ -288,6 +305,8 @@ def compute_chanlun_original(data_df: pd.DataFrame) -> tuple[list[dict], list[di
                     traps.append({"date": f_curr["date"], "val": f_curr["val"], "label": "诱多", "type": "Top"})
                 elif applicable_zs:
                     recent_z = applicable_zs[-1]
+                    if not has_uptrend_context(recent_z):
+                        continue
                     touch_fractals = [
                         f
                         for f in valid_fractals

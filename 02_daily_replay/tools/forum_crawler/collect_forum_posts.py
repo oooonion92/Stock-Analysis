@@ -3,6 +3,9 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import os
+import shutil
+import stat
 from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,6 +18,38 @@ from import_watch_targets import import_csv
 
 
 REPORT_DIR = CLOUD_REPORTS_ROOT
+
+LEGACY_CLOUD_EXPORTS = (
+    CLOUD_ROOT / "今日汇总.md",
+    CLOUD_ROOT / "最近7天汇总.md",
+    CLOUD_ROOT / "趋势高手汇总.md",
+    CLOUD_ROOT / "短线高手汇总.md",
+    CLOUD_ROOT / "_index.md",
+    CLOUD_ROOT / "authors",
+    CLOUD_ROOT / "raw_jsonl",
+    CLOUD_ROOT / "reports",
+)
+
+
+def remove_readonly(func, path, _exc_info) -> None:
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+def cleanup_legacy_cloud_exports() -> tuple[int, list[str]]:
+    removed = 0
+    warnings: list[str] = []
+    for path in LEGACY_CLOUD_EXPORTS:
+        try:
+            if path.is_dir():
+                shutil.rmtree(path, onexc=remove_readonly)
+                removed += 1
+            elif path.exists():
+                path.unlink()
+                removed += 1
+        except OSError as exc:
+            warnings.append(f"{path}: {exc}")
+    return removed, warnings
 
 
 def clean_title(value: str | None) -> str:
@@ -200,7 +235,7 @@ def fetch_posts_for_summary(conn, days: int | None = None, style: str | None = N
         cutoff = datetime.now() - timedelta(days=days)
         filtered = []
         for row in rows:
-            parsed = parse_post_time(row["published_at"])
+            parsed = parse_post_time(row["published_at"] or row["crawled_at"])
             if parsed and parsed >= cutoff:
                 filtered.append(row)
         rows = filtered
@@ -269,10 +304,7 @@ def write_summary_files() -> list[Path]:
     paths: list[Path] = []
     with connect() as conn:
         specs = [
-            ("今日汇总.md", "今日高手发言汇总", 1, None, 200),
-            ("最近7天汇总.md", "最近7天高手发言汇总", 7, None, 500),
-            ("趋势高手汇总.md", "趋势高手发言汇总", 14, "趋势", 500),
-            ("短线高手汇总.md", "短线高手发言汇总", 14, "短线", 500),
+            ("最近3天汇总.md", "最近3天高手发言汇总", 3, None, None),
         ]
         for filename, title, days, style, limit in specs:
             path = CLOUD_ROOT / filename
@@ -698,24 +730,17 @@ def main() -> int:
                     }
                 )
 
-    formats = ["md", "jsonl"] if args.export_format == "both" else [args.export_format]
-    exported_paths = export_all_posts(
-        output_root=OUTPUT_ROOT,
-        site_name=args.site,
-        formats=formats,
-        limit=args.limit,
-    )
-    report_path = write_report(summary, exported_paths)
-    index_path = write_export_index(exported_paths)
+    removed_legacy, cleanup_warnings = cleanup_legacy_cloud_exports()
     summary_paths = write_summary_files()
     dashboard_path = write_reader_dashboard()
 
     print(f"收集完成：{len(summary)} 个目标")
-    print(f"导出文件：{len(exported_paths)} 个")
-    print(f"汇总文件：{len(summary_paths)} 个")
+    if removed_legacy:
+        print(f"已清理旧导出：{removed_legacy} 项")
+    for warning in cleanup_warnings:
+        print(f"[WARN] 旧导出暂未清理：{warning}")
+    print(f"三日滚动汇总：{summary_paths[0]}")
     print(f"阅读看板：{dashboard_path}")
-    print(f"报告：{report_path}")
-    print(f"索引：{index_path}")
     return 0
 
 

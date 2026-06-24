@@ -112,8 +112,8 @@ NGA,-阿狼-,150058,replies,短线,3,https://bbs.nga.cn/thread.php?searchpost=1&
 1. 读取启用目标
 2. 抓取回帖
 3. 写入 SQLite 去重
-4. 导出 Markdown / JSONL
-5. 生成收集报告和导出索引
+4. 从数据库重新生成最近 3 天滚动汇总
+5. 更新高手发言阅读看板
 ```
 
 对应命令：
@@ -126,11 +126,11 @@ NGA,-阿狼-,150058,replies,短线,3,https://bbs.nga.cn/thread.php?searchpost=1&
 
 ```text
 02_daily_replay/data/forum_watchlist.sqlite
-02_daily_replay/source_notes/crawled_forum_posts/_index.md
-02_daily_replay/source_notes/crawled_forum_posts/_reports/
-02_daily_replay/source_notes/crawled_forum_posts/nga/短线/
-02_daily_replay/source_notes/crawled_forum_posts/nga/趋势/
+D:\OneDrive\Stock\Replies collect\最近3天汇总.md
+D:\OneDrive\Stock\Replies collect\高手发言阅读看板.html
 ```
+
+同一天可以运行多次。每次抓取只向 SQLite 新增尚未保存的发言，三日汇总则从数据库完整重建，因此中午和晚上的记录会合并显示，不依赖上一次 Markdown 文件的内容。
 
 抓取所有启用目标：
 
@@ -276,12 +276,8 @@ D:\OneDrive\Stock\Replies collect\
 
 ```text
 D:\OneDrive\Stock\Replies collect\watch_targets.csv
-D:\OneDrive\Stock\Replies collect\今日汇总.md
-D:\OneDrive\Stock\Replies collect\最近7天汇总.md
-D:\OneDrive\Stock\Replies collect\趋势高手汇总.md
-D:\OneDrive\Stock\Replies collect\短线高手汇总.md
-D:\OneDrive\Stock\Replies collect\authors\
-D:\OneDrive\Stock\Replies collect\reports\
+D:\OneDrive\Stock\Replies collect\最近3天汇总.md
+D:\OneDrive\Stock\Replies collect\高手发言阅读看板.html
 ```
 
-日常维护只改云端 `watch_targets.csv`。执行一键收集时，脚本会先把云端清单同步进本地 SQLite，再抓取和导出。SQLite 仍保留在项目目录里，避免 OneDrive 同步锁库。
+日常维护只改云端 `watch_targets.csv`。执行一键收集时，脚本会先把云端清单同步进本地 SQLite，再抓取并刷新三日汇总和阅读看板。完整历史只保存在 SQLite 中，避免 OneDrive 产生大量重复导出文件；SQLite 仍留在项目目录里，避免同步锁库。

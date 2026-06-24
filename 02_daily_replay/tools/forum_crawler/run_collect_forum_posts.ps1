@@ -91,7 +91,7 @@ $StartCollectText = -join ([char[]](24320,22987,25910,38598,65306))
 $CollectFailedText = -join ([char[]](25910,38598,22833,36133))
 $CollectDoneText = -join ([char[]](25910,38598,23436,25104,65306))
 $TargetUnitText = -join ([char[]](20010,30446,26631))
-$TodaySummaryName = (-join ([char[]](20170,26085,27719,24635))) + ".md"
+$RollingSummaryName = (-join ([char[]](26368,36817,51,22825,27719,24635))) + ".md"
 $ReaderDashboardName = (-join ([char[]](39640,25163,21457,35328,38405,35835,30475,26495))) + ".html"
 
 $StartCollectPattern = "^" + [regex]::Escape($StartCollectText) + "(.+)$"
@@ -268,19 +268,9 @@ if ($ExitCode -eq 0) {
     Write-Host "Collection command returned exit code: $ExitCode"
 }
 
-$ReportsRoot = Join-Path $CloudRoot "reports"
-if (Test-Path -LiteralPath $ReportsRoot) {
-    $LatestReport = Get-ChildItem -LiteralPath $ReportsRoot -Filter "collect_report_*.md" |
-        Sort-Object LastWriteTime -Descending |
-        Select-Object -First 1
-    if ($LatestReport) {
-        Write-Host "Latest report: $($LatestReport.FullName)"
-    }
-}
-
-$TodaySummary = Join-Path $CloudRoot $TodaySummaryName
-if (Test-Path -LiteralPath $TodaySummary) {
-    Write-Host "Today summary: $TodaySummary"
+$RollingSummary = Join-Path $CloudRoot $RollingSummaryName
+if (Test-Path -LiteralPath $RollingSummary) {
+    Write-Host "Rolling 3-day summary: $RollingSummary"
 }
 
 $ReaderDashboard = Join-Path $CloudRoot $ReaderDashboardName

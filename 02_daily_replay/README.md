@@ -37,5 +37,6 @@
 
 - 高频结构来自 `D:\OneDrive\Stock\details` 下的指数和个股 5m/30m CSV。
 - 全市场题材生态优先读取 `D:\OneDrive\Stock\details\全部Ａ股YYYYMMDD.xlsx`；如果当天文件缺失，题材生态必须明确提示缺数据，不用旧文件冒充当天结论。
-- 高手发言摘要不要求用户另行精炼。复盘时应直接读取 `D:\OneDrive\Stock\Replies collect\今日汇总.md`，由当前复盘对话用 AI 能力完成筛选、精炼和摘录结构化，再写入当日看板；若已有 `今日总结看板_YYYYMMDD.html`，可作为参考来源，但不能要求用户先生成它。
+- 高手发言摘要不要求用户另行精炼。复盘时先读取 `D:\OneDrive\Stock\Replies collect\今日汇总.md`，由当前复盘对话先做 AI 精炼，再落成 `plans/YYYYMMDD_expert_digest.json` 供当天看板优先读取；若已有 `今日总结看板_YYYYMMDD.html`，只作为辅助参考，不作为前置依赖。
+- 每次生成会同时写项目内归档 HTML 和云端阅读版 `D:\OneDrive\Stock\Daily review\YYYYMMDD_每日复盘.html`。
 - 新增买入继续执行三道过滤器：结构、情绪/主线、仓位。缠论只确认结构，不单独构成买入理由。
