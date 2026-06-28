@@ -10,6 +10,12 @@ $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONUNBUFFERED = "1"
 
+$ProcessPath = [System.Environment]::GetEnvironmentVariable("Path", "Process")
+if ($ProcessPath) {
+    [System.Environment]::SetEnvironmentVariable("PATH", $null, "Process")
+    [System.Environment]::SetEnvironmentVariable("Path", $ProcessPath, "Process")
+}
+
 function Write-Section {
     param([string]$Text)
     Write-Host ""
@@ -55,7 +61,49 @@ if (-not $Python) {
     throw "Cannot find Python. Expected bundled Codex runtime or system python."
 }
 
+$Requirements = Join-Path $ScriptDir "requirements.txt"
+
+function Test-PythonModule {
+    param([string]$ModuleName)
+
+    $Check = @(
+        "-c",
+        "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('$ModuleName') else 1)"
+    )
+    & $Python @Check *> $null
+    return $LASTEXITCODE -eq 0
+}
+
+function Ensure-PythonDependencies {
+    $RequiredModules = @("bs4", "lxml", "scrapling", "playwright")
+    $MissingModules = @()
+    foreach ($ModuleName in $RequiredModules) {
+        if (-not (Test-PythonModule $ModuleName)) {
+            $MissingModules += $ModuleName
+        }
+    }
+
+    if ($MissingModules.Count -eq 0) {
+        return
+    }
+
+    if (-not (Test-Path -LiteralPath $Requirements)) {
+        throw "Missing Python modules ($($MissingModules -join ', ')) and cannot find requirements file: $Requirements"
+    }
+
+    Write-Host "Installing missing Python dependencies: $($MissingModules -join ', ')"
+    & $Python -m pip install -r $Requirements
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to install Python dependencies. Please check the network and pip output above."
+    }
+}
+
+Ensure-PythonDependencies
+
 $DefaultArgs = @("--retries", "20", "--retry-delay", "3", "--export-format", "both")
+if ((Get-Date).DayOfWeek -eq "Sunday") {
+    $DefaultArgs += @("--min-pages", "3")
+}
 if ($CollectorArgs.Count -gt 0) {
     $RunArgs = $CollectorArgs
 } else {
@@ -93,6 +141,8 @@ $CollectDoneText = -join ([char[]](25910,38598,23436,25104,65306))
 $TargetUnitText = -join ([char[]](20010,30446,26631))
 $RollingSummaryName = (-join ([char[]](26368,36817,51,22825,27719,24635))) + ".md"
 $ReaderDashboardName = (-join ([char[]](39640,25163,21457,35328,38405,35835,30475,26495))) + ".html"
+$WeekendSummaryName = (-join ([char[]](21608,26411,19977,26085,27719,24635))) + ".md"
+$WeekendDashboardName = (-join ([char[]](21608,26411,39640,25163,21457,35328,38405,35835,30475,26495))) + ".html"
 
 $StartCollectPattern = "^" + [regex]::Escape($StartCollectText) + "(.+)$"
 $CollectFailedPattern = [regex]::Escape($CollectFailedText) + "|failed:"
@@ -276,6 +326,16 @@ if (Test-Path -LiteralPath $RollingSummary) {
 $ReaderDashboard = Join-Path $CloudRoot $ReaderDashboardName
 if (Test-Path -LiteralPath $ReaderDashboard) {
     Write-Host "Reader dashboard: $ReaderDashboard"
+}
+
+$WeekendSummary = Join-Path $CloudRoot $WeekendSummaryName
+if (Test-Path -LiteralPath $WeekendSummary) {
+    Write-Host "Weekend 3-day summary: $WeekendSummary"
+}
+
+$WeekendDashboard = Join-Path $CloudRoot $WeekendDashboardName
+if (Test-Path -LiteralPath $WeekendDashboard) {
+    Write-Host "Weekend dashboard: $WeekendDashboard"
 }
 
 Write-Host "Log file: $LogPath"

@@ -19,6 +19,7 @@ snapshots/
 02_daily_replay/plans/watchlist_config.json
 02_daily_replay/tools/forum_crawler/browser_profile/
 02_daily_replay/source_notes/crawled_forum_posts/
+02_daily_replay/temp_audio_transcribe/
 02_daily_replay/data/*.sqlite-journal
 02_daily_replay/data/*.sqlite-wal
 02_daily_replay/data/*.sqlite-shm

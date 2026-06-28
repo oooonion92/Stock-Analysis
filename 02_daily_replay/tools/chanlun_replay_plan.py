@@ -5,6 +5,7 @@ import html
 import json
 import math
 import re
+import sqlite3
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -1742,9 +1743,83 @@ def read_expert_markdown_digest(report_date: str, base_dir: Path = REPLIES_DIR) 
     }
 
 
+def read_marked_expert_evidence(report_date: str) -> dict[str, Any]:
+    db_path = REPLAY_ROOT / "data" / "forum_watchlist.sqlite"
+    if not db_path.exists():
+        return {}
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT
+                posts.id,
+                posts.url,
+                posts.title,
+                posts.content,
+                posts.published_at,
+                posts.crawled_at,
+                sites.name AS site_name,
+                watch_targets.display_name AS author_name,
+                watch_targets.style,
+                post_marks.useful,
+                post_marks.refine
+            FROM posts
+            JOIN sites ON sites.id = posts.site_id
+            JOIN watch_targets ON watch_targets.id = posts.target_id
+            JOIN post_marks ON post_marks.post_id = posts.id
+            WHERE watch_targets.enabled = 1
+              AND sites.enabled = 1
+              AND post_marks.noise = 0
+              AND post_marks.useful = 1
+              AND substr(COALESCE(NULLIF(posts.published_at, ''), posts.crawled_at), 1, 10) = ?
+            ORDER BY post_marks.useful DESC,
+                     COALESCE(NULLIF(posts.published_at, ''), posts.crawled_at) DESC,
+                     posts.id DESC
+            LIMIT 20
+            """,
+            (str(report_date),),
+        ).fetchall()
+    except sqlite3.Error:
+        return {}
+    finally:
+        if conn is not None:
+            conn.close()
+    if not rows:
+        return {}
+
+    quotes = []
+    for row in rows:
+        content = str(row["content"] or "").strip()
+        quote = useful_quote_from_body(content) or content[:72]
+        tag = "有用"
+        source_time = str(row["published_at"] or row["crawled_at"] or "")
+        source = f"{row['site_name']} / {row['author_name']}"
+        if len(source_time) >= 16:
+            source = f"{source} · {source_time[11:16]}"
+        quotes.append(
+            {
+                "tag": tag,
+                "source": source,
+                "quote": quote,
+                "context": "来自阅读中心的人工标记证据池；已排除噪音。",
+                "takeaway": "人工认为这条发言对复盘有价值，AI总结阶段应优先参考，但仍需结合盘面结构确认。",
+                "action": "作为高手观点证据进入复盘，不单独触发交易。",
+                "url": row["url"] or "",
+            }
+        )
+    return {
+        "source_marked_evidence": str(db_path),
+        "selection_rule": "人工标记证据池优先：只纳入有用，排除噪音；AI复盘阶段基于这些人工筛选内容再总结。",
+        "quotes": quotes,
+    }
+
+
 def merged_expert_digest(config_digest: dict[str, Any], report_date: str, curated_digest: dict[str, Any] | None = None) -> dict[str, Any]:
     markdown_digest = read_expert_markdown_digest(report_date)
     dashboard_digest = read_expert_dashboard(report_date)
+    marked_digest = read_marked_expert_evidence(report_date)
     config_updated_at = str((config_digest or {}).get("updated_at") or "")
     config_matches = str(report_date) in config_updated_at
     curated = curated_digest or {}
@@ -1756,6 +1831,11 @@ def merged_expert_digest(config_digest: dict[str, Any], report_date: str, curate
     merged = dict(dashboard_digest or {})
     if markdown_digest:
         merged.update({key: value for key, value in markdown_digest.items() if value not in (None, "", [])})
+    if marked_digest:
+        existing_quotes = list(merged.get("quotes") or [])
+        marked_quotes = list(marked_digest.get("quotes") or [])
+        merged.update({key: value for key, value in marked_digest.items() if key != "quotes" and value not in (None, "", [])})
+        merged["quotes"] = marked_quotes + existing_quotes
     if config_matches:
         merged.update({key: value for key, value in (config_digest or {}).items() if value not in (None, "", [])})
     if curated_matches:

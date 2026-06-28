@@ -20,6 +20,9 @@ def crawl_target(conn, target, args) -> tuple[int, int]:
     site_type = target["site_type"]
     target_type = target["target_type"]
     pages = args.pages if args.pages is not None else int(target["crawl_pages"])
+    min_pages = int(getattr(args, "min_pages", 0) or 0)
+    if min_pages > 0:
+        pages = max(pages, min_pages)
 
     run_id = start_run(conn, int(target["site_id"]), int(target["id"]), pages)
     site_id = int(target["site_id"])
@@ -72,6 +75,7 @@ def main() -> int:
     parser.add_argument("--site", help="只抓指定网站名，例如 NGA。")
     parser.add_argument("--name", help="只抓指定高手显示名。")
     parser.add_argument("--pages", type=int, help="覆盖数据库中的抓取页数。")
+    parser.add_argument("--min-pages", type=int, default=0, help="每个目标至少抓取 N 页；不会降低原本更高的页数设置。")
     parser.add_argument("--delay", type=float, default=2.0)
     parser.add_argument("--retries", type=int, default=5)
     parser.add_argument("--retry-delay", type=float, default=3.0)

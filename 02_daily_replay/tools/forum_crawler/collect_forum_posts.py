@@ -6,7 +6,7 @@ import json
 import os
 import shutil
 import stat
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -210,7 +210,24 @@ def parse_post_time(value: str) -> datetime | None:
     return None
 
 
-def fetch_posts_for_summary(conn, days: int | None = None, style: str | None = None, limit: int | None = None) -> list:
+def weekend_window(reference: datetime | None = None) -> tuple[datetime, datetime, str]:
+    ref_date = (reference or datetime.now()).date()
+    days_since_friday = (ref_date.weekday() - 4) % 7
+    friday = ref_date - timedelta(days=days_since_friday)
+    sunday = friday + timedelta(days=2)
+    start = datetime.combine(friday, time.min)
+    end = datetime.combine(sunday, time.max)
+    return start, end, f"{friday.isoformat()} 至 {sunday.isoformat()}"
+
+
+def fetch_posts_for_summary(
+    conn,
+    days: int | None = None,
+    style: str | None = None,
+    limit: int | None = None,
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
+) -> list:
     rows = list(
         conn.execute(
             """
@@ -231,7 +248,19 @@ def fetch_posts_for_summary(conn, days: int | None = None, style: str | None = N
     )
     if style:
         rows = [row for row in rows if row["style"] == style]
-    if days is not None:
+    if start_time is not None or end_time is not None:
+        filtered = []
+        for row in rows:
+            parsed = parse_post_time(row["published_at"] or row["crawled_at"])
+            if parsed is None:
+                continue
+            if start_time is not None and parsed < start_time:
+                continue
+            if end_time is not None and parsed > end_time:
+                continue
+            filtered.append(row)
+        rows = filtered
+    elif days is not None:
         cutoff = datetime.now() - timedelta(days=days)
         filtered = []
         for row in rows:
@@ -314,7 +343,14 @@ def write_summary_files() -> list[Path]:
     return paths
 
 
-def write_reader_dashboard(days: int = 14, limit: int | None = None) -> Path:
+def write_reader_dashboard(
+    days: int = 14,
+    limit: int | None = None,
+    path: Path | None = None,
+    title: str = "高手发言阅读看板",
+    rows: list | None = None,
+    combined_label: str | None = None,
+) -> Path:
     path = CLOUD_ROOT / "高手发言阅读看板.html"
     with connect() as conn:
         rows = fetch_posts_for_summary(conn, days=days, limit=limit)
@@ -654,11 +690,161 @@ def write_reader_dashboard(days: int = 14, limit: int | None = None) -> Path:
     return path
 
 
+def fetch_weekend_posts() -> tuple[list, str]:
+    start_time, end_time, label = weekend_window()
+    with connect() as conn:
+        rows = fetch_posts_for_summary(conn, start_time=start_time, end_time=end_time)
+    return rows, label
+
+
+def write_weekend_summary_file() -> tuple[Path, int, str]:
+    CLOUD_ROOT.mkdir(parents=True, exist_ok=True)
+    rows, label = fetch_weekend_posts()
+    path = CLOUD_ROOT / "周末三日汇总.md"
+    path.write_text(render_summary(f"周末三日高手发言汇总（{label}）", rows), encoding="utf-8-sig")
+    return path, len(rows), label
+
+
+def write_weekend_reader_dashboard() -> tuple[Path, int, str]:
+    rows, label = fetch_weekend_posts()
+    path = CLOUD_ROOT / "周末高手发言阅读看板.html"
+    grouped: dict[str, dict[str, list]] = {}
+    for row in rows:
+        style = row["style"] or "未分类"
+        source = f"{row['site_name']} / {row['author_name']}"
+        grouped.setdefault(style, {}).setdefault(source, []).append(row)
+
+    nav_parts: list[str] = []
+    body_parts: list[str] = []
+    for style in sorted(grouped):
+        nav_parts.append(f'<div class="style-label">{html.escape(style)}</div>')
+        body_parts.append(f'<h2>{html.escape(style)}</h2>')
+        for source in sorted(grouped[style]):
+            records = grouped[style][source]
+            anchor = html_id("weekend", style, source)
+            nav_parts.append(f'<a href="#{anchor}">{html.escape(source)} ({len(records)})</a>')
+            body_parts.append(f'<section class="author-section" id="{anchor}">')
+            body_parts.append(f'<h3>{html.escape(source)} <span>{len(records)}</span></h3>')
+            for row in records:
+                content = (row["content"] or "").strip()
+                if not content:
+                    continue
+                title = clean_title(row["title"])
+                url = row["url"] or ""
+                body_parts.append('<article class="post">')
+                body_parts.append('<div class="post-meta">')
+                body_parts.append(f'<span>{html.escape(format_time(row["published_at"] or row["crawled_at"]))}</span>')
+                body_parts.append(f'<span>{html.escape(post_date(row))}</span>')
+                body_parts.append(f'<span>{html.escape(post_author_name(row))}</span>')
+                if title:
+                    body_parts.append(f'<span>{html.escape(title)}</span>')
+                if url:
+                    body_parts.append(f'<a href="{html.escape(url)}" target="_blank" rel="noopener">查看原帖</a>')
+                body_parts.append('</div>')
+                body_parts.append(f'<div class="content">{render_text_html(content)}</div>')
+                body_parts.append('</article>')
+            body_parts.append('</section>')
+
+    generated_at = datetime.now().isoformat(timespec="seconds")
+    text = f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>周末高手发言阅读看板</title>
+  <style>
+    :root {{
+      --bg: #f5f6f2;
+      --panel: #ffffff;
+      --ink: #20242a;
+      --muted: #68707a;
+      --line: #dfe3e6;
+      --accent: #1f6feb;
+      --accent-soft: #eaf2ff;
+      --green: #2f7d57;
+    }}
+    * {{ box-sizing: border-box; }}
+    html {{ scroll-behavior: smooth; }}
+    body {{
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
+      line-height: 1.72;
+    }}
+    .sidebar {{
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: 340px;
+      padding: 22px 18px;
+      overflow-y: auto;
+      background: #fbfcfa;
+      border-right: 1px solid var(--line);
+    }}
+    h1 {{ margin: 0 0 6px; font-size: 22px; line-height: 1.25; }}
+    .brand p {{ margin: 0 0 20px; color: var(--muted); font-size: 13px; }}
+    .nav-title {{ margin: 18px 0 10px; font-size: 13px; color: var(--muted); font-weight: 700; }}
+    .author-nav {{ display: grid; gap: 8px; }}
+    .author-nav a {{
+      display: block;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel);
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 14px;
+    }}
+    .author-nav a:hover {{ border-color: var(--accent); background: var(--accent-soft); color: #0b4fb3; }}
+    .style-label {{ margin: 10px 0 2px; color: var(--green); font-size: 12px; font-weight: 800; }}
+    main {{ margin-left: 340px; padding: 30px 44px 80px; }}
+    .reader {{ width: min(1240px, 100%); }}
+    .topline {{ margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }}
+    .topline span {{ display: block; font-size: 28px; font-weight: 800; }}
+    .topline em {{ color: var(--muted); font-style: normal; }}
+    h2 {{ margin: 28px 0 12px; font-size: 22px; }}
+    .author-section {{ scroll-margin-top: 18px; margin-bottom: 34px; }}
+    .author-section h3 {{ margin: 0 0 12px; font-size: 19px; }}
+    .author-section h3 span {{ margin-left: 6px; color: var(--muted); font-size: 13px; font-weight: 500; }}
+    .post {{ margin: 0 0 16px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }}
+    .post-meta {{ display: flex; flex-wrap: wrap; gap: 8px 14px; color: var(--muted); font-size: 13px; }}
+    .post-meta a {{ color: var(--accent); text-decoration: none; }}
+    .content {{ white-space: normal; font-size: 16px; }}
+    @media (max-width: 860px) {{
+      .sidebar {{ position: static; width: auto; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); }}
+      main {{ margin-left: 0; padding: 22px 16px 60px; }}
+      .topline span {{ font-size: 23px; }}
+    }}
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>周末高手发言阅读看板</h1>
+      <p>{html.escape(generated_at)} · {html.escape(label)} · {len(rows)} records</p>
+    </div>
+    <div class="nav-title">作者导航</div>
+    <nav class="author-nav">{''.join(nav_parts)}</nav>
+  </aside>
+  <main>
+    <div class="reader">
+      <div class="topline"><span>周末包 {html.escape(label)}</span><em>周五、周六、周日合并阅读</em></div>
+      {''.join(body_parts)}
+    </div>
+  </main>
+</body>
+</html>
+"""
+    path.write_text(text, encoding="utf-8-sig")
+    return path, len(rows), label
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="一键收集跟踪库中的高手发言，并导出可读文件。")
     parser.add_argument("--site", help="只收集指定网站，例如 NGA。")
     parser.add_argument("--style", choices=["短线", "趋势", "混合", "未知"], help="只收集指定分类。")
     parser.add_argument("--pages", type=int, help="覆盖数据库中的抓取页数。")
+    parser.add_argument("--min-pages", type=int, default=0, help="每个目标至少抓取 N 页；不会降低原本更高的页数设置。")
     parser.add_argument("--delay", type=float, default=3.0)
     parser.add_argument("--retries", type=int, default=10)
     parser.add_argument("--retry-delay", type=float, default=3.0)
@@ -675,6 +861,7 @@ def main() -> int:
 
     crawl_args = SimpleNamespace(
         pages=args.pages,
+        min_pages=args.min_pages,
         delay=args.delay,
         retries=args.retries,
         retry_delay=args.retry_delay,
@@ -733,6 +920,8 @@ def main() -> int:
     removed_legacy, cleanup_warnings = cleanup_legacy_cloud_exports()
     summary_paths = write_summary_files()
     dashboard_path = write_reader_dashboard()
+    weekend_summary_path, weekend_summary_count, weekend_label = write_weekend_summary_file()
+    weekend_dashboard_path, weekend_dashboard_count, _ = write_weekend_reader_dashboard()
 
     print(f"收集完成：{len(summary)} 个目标")
     if removed_legacy:
@@ -741,6 +930,8 @@ def main() -> int:
         print(f"[WARN] 旧导出暂未清理：{warning}")
     print(f"三日滚动汇总：{summary_paths[0]}")
     print(f"阅读看板：{dashboard_path}")
+    print(f"周末三日汇总（{weekend_label}，{weekend_summary_count} 条）：{weekend_summary_path}")
+    print(f"周末阅读看板（{weekend_dashboard_count} 条）：{weekend_dashboard_path}")
     return 0
 
 
