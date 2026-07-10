@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
-import sys
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -13,14 +13,8 @@ from forum_paths import CLOUD_REPORTS_ROOT, CLOUD_ROOT, CLOUD_WATCH_TARGETS
 from forum_db import connect, list_enabled_targets
 from import_watch_targets import import_csv
 
-TOOLS_ROOT = Path(__file__).resolve().parents[1]
-if str(TOOLS_ROOT) not in sys.path:
-    sys.path.insert(0, str(TOOLS_ROOT))
-
-from render_expert_reader_board import parse_markdown, render_html
-
-
 REPORT_DIR = CLOUD_REPORTS_ROOT
+READER_CENTER_URL = "http://127.0.0.1:8769/"
 
 
 def clean_title(value: str | None) -> str:
@@ -181,12 +175,24 @@ def parse_post_time(value: str) -> datetime | None:
     return None
 
 
+def weekend_window(reference: datetime | None = None) -> tuple[datetime, datetime, str]:
+    ref_date = (reference or datetime.now()).date()
+    days_since_friday = (ref_date.weekday() - 4) % 7
+    friday = ref_date - timedelta(days=days_since_friday)
+    sunday = friday + timedelta(days=2)
+    start = datetime.combine(friday, time.min)
+    end = datetime.combine(sunday, time.max)
+    return start, end, f"{friday.isoformat()} 至 {sunday.isoformat()}"
+
+
 def fetch_posts_for_summary(
     conn,
     days: int | None = None,
     style: str | None = None,
     limit: int | None = None,
     target_date: str | None = None,
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
 ) -> list:
     rows = list(
         conn.execute(
@@ -210,11 +216,23 @@ def fetch_posts_for_summary(
         rows = [row for row in rows if row["style"] == style]
     if target_date is not None:
         rows = [row for row in rows if post_date(row) == target_date]
-    if days is not None:
+    if start_time is not None or end_time is not None:
+        filtered = []
+        for row in rows:
+            parsed = parse_post_time(row["published_at"] or row["crawled_at"])
+            if parsed is None:
+                continue
+            if start_time is not None and parsed < start_time:
+                continue
+            if end_time is not None and parsed > end_time:
+                continue
+            filtered.append(row)
+        rows = filtered
+    elif days is not None:
         cutoff = datetime.now() - timedelta(days=days)
         filtered = []
         for row in rows:
-            parsed = parse_post_time(row["published_at"])
+            parsed = parse_post_time(row["published_at"] or row["crawled_at"])
             if parsed and parsed >= cutoff:
                 filtered.append(row)
         rows = filtered
@@ -265,15 +283,7 @@ def render_summary(title: str, rows) -> str:
                 )
                 if should_show_preview(content, preview):
                     lines.extend(["", f"**速览：** {preview}"])
-                lines.extend(
-                    [
-                        "",
-                        content,
-                        "",
-                        "---",
-                        "",
-                    ]
-                )
+                lines.extend(["", content, "", "---", ""])
                 index += 1
     return "\n".join(lines).strip() + "\n"
 
@@ -284,31 +294,115 @@ def write_summary_files() -> list[Path]:
     with connect() as conn:
         today = datetime.now().strftime("%Y-%m-%d")
         specs = [
-            ("今日汇总.md", "今日高手发言汇总", 1, None, 200),
-            ("最近7天汇总.md", "最近7天高手发言汇总", 7, None, 500),
-            ("趋势高手汇总.md", "趋势高手发言汇总", 14, "趋势", 500),
-            ("短线高手汇总.md", "短线高手发言汇总", 14, "短线", 500),
+            ("今日汇总.md", "今日高手发言汇总", None, None, 200, today),
+            ("最近3天汇总.md", "最近3天高手发言汇总", 3, None, None, None),
+            ("最近7天汇总.md", "最近7天高手发言汇总", 7, None, 500, None),
+            ("趋势高手汇总.md", "趋势高手发言汇总", 14, "趋势", 500, None),
+            ("短线高手汇总.md", "短线高手发言汇总", 14, "短线", 500, None),
         ]
-        specs[0] = (specs[0][0], specs[0][1], None, specs[0][3], None, today)
-        specs[1] = (*specs[1], None)
-        specs[2] = (*specs[2], None)
-        specs[3] = (*specs[3], None)
         for filename, title, days, style, limit, target_date in specs:
             path = CLOUD_ROOT / filename
-            rows = fetch_posts_for_summary(conn, days=days, style=style, limit=limit, target_date=target_date)
+            rows = fetch_posts_for_summary(
+                conn,
+                days=days,
+                style=style,
+                limit=limit,
+                target_date=target_date,
+            )
             path.write_text(render_summary(title, rows), encoding="utf-8-sig")
             paths.append(path)
     return paths
 
 
+def fetch_weekend_posts() -> tuple[list, str]:
+    start_time, end_time, label = weekend_window()
+    with connect() as conn:
+        rows = fetch_posts_for_summary(conn, start_time=start_time, end_time=end_time)
+    return rows, label
+
+
+def render_reader_redirect_html(title: str, target_url: str, helper: str) -> str:
+    escaped_title = html.escape(title)
+    escaped_target = html.escape(target_url, quote=True)
+    escaped_helper = html.escape(helper)
+    return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{escaped_title}</title>
+  <meta http-equiv="refresh" content="0; url={escaped_target}">
+  <style>
+    body {{
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #f5f6f2;
+      color: #20242a;
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
+    }}
+    .panel {{
+      width: min(560px, calc(100vw - 32px));
+      padding: 24px 26px;
+      background: #fff;
+      border: 1px solid #dfe3e6;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(31, 36, 42, 0.06);
+    }}
+    h1 {{ margin: 0 0 10px; font-size: 22px; line-height: 1.3; }}
+    p {{ margin: 0 0 12px; color: #68707a; line-height: 1.7; }}
+    a {{
+      color: #1f6feb;
+      text-decoration: none;
+      font-weight: 700;
+    }}
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h1>{escaped_title}</h1>
+    <p>{escaped_helper}</p>
+    <p>如果没有自动跳转，请点击：<a href="{escaped_target}">{escaped_target}</a></p>
+  </div>
+</body>
+</html>
+"""
+
+
 def write_reader_dashboard(days: int = 14, limit: int | None = None) -> Path:
     path = CLOUD_ROOT / "高手发言阅读看板.html"
-    summary_path = CLOUD_ROOT / "今日汇总.md"
-    if not summary_path.exists():
-        raise FileNotFoundError(f"未找到汇总文件：{summary_path}")
-    board = parse_markdown(summary_path.read_text(encoding="utf-8-sig"))
-    path.write_text(render_html(board), encoding="utf-8")
+    path.write_text(
+        render_reader_redirect_html(
+            title="高手发言阅读中心",
+            target_url=READER_CENTER_URL,
+            helper="这版看板已经切到数据库直读模式，不再依赖 markdown 中间层。",
+        ),
+        encoding="utf-8",
+    )
     return path
+
+
+def write_weekend_summary_file() -> tuple[Path, int, str]:
+    rows, label = fetch_weekend_posts()
+    path = CLOUD_ROOT / "周末三日汇总.md"
+    path.write_text(render_summary(f"周末三日高手发言汇总（{label}）", rows), encoding="utf-8-sig")
+    return path, len(rows), label
+
+
+def write_weekend_reader_dashboard() -> tuple[Path, int, str]:
+    rows, label = fetch_weekend_posts()
+    path = CLOUD_ROOT / "周末高手发言阅读看板.html"
+    target_url = f"{READER_CENTER_URL}?preset=weekend"
+    path.write_text(
+        render_reader_redirect_html(
+            title="周末高手发言阅读中心",
+            target_url=target_url,
+            helper=f"周末阅读入口已切到数据库直读模式，时间范围默认对应：{label}。",
+        ),
+        encoding="utf-8",
+    )
+    return path, len(rows), label
 
 
 def main() -> int:
@@ -316,6 +410,7 @@ def main() -> int:
     parser.add_argument("--site", help="只收集指定网站，例如 NGA。")
     parser.add_argument("--style", choices=["短线", "趋势", "混合", "未知"], help="只收集指定分类。")
     parser.add_argument("--pages", type=int, help="覆盖数据库中的抓取页数。")
+    parser.add_argument("--min-pages", type=int, default=0, help="每个目标至少抓取 N 页；不会降低原本更高的页数设置。")
     parser.add_argument("--delay", type=float, default=3.0)
     parser.add_argument("--retries", type=int, default=10)
     parser.add_argument("--retry-delay", type=float, default=3.0)
@@ -332,6 +427,7 @@ def main() -> int:
 
     crawl_args = SimpleNamespace(
         pages=args.pages,
+        min_pages=args.min_pages,
         delay=args.delay,
         retries=args.retries,
         retry_delay=args.retry_delay,
@@ -353,6 +449,8 @@ def main() -> int:
         if args.skip_crawl:
             for target in targets:
                 pages = args.pages if args.pages is not None else int(target["crawl_pages"])
+                if args.min_pages > 0:
+                    pages = max(pages, args.min_pages)
                 summary.append(
                     {
                         "site": target["site_name"],
@@ -367,6 +465,8 @@ def main() -> int:
         else:
             for target in targets:
                 pages = args.pages if args.pages is not None else int(target["crawl_pages"])
+                if args.min_pages > 0:
+                    pages = max(pages, args.min_pages)
                 print(f"开始收集：{target['site_name']} / {target['display_name']} / {target['style']}")
                 try:
                     found, new = crawl_target(conn, target, crawl_args)
@@ -398,11 +498,15 @@ def main() -> int:
     index_path = write_export_index(exported_paths)
     summary_paths = write_summary_files()
     dashboard_path = write_reader_dashboard()
+    weekend_summary_path, weekend_summary_count, weekend_label = write_weekend_summary_file()
+    weekend_dashboard_path, weekend_dashboard_count, _ = write_weekend_reader_dashboard()
 
     print(f"收集完成：{len(summary)} 个目标")
     print(f"导出文件：{len(exported_paths)} 个")
     print(f"汇总文件：{len(summary_paths)} 个")
     print(f"阅读看板：{dashboard_path}")
+    print(f"周末三日汇总（{weekend_label}，{weekend_summary_count} 条）：{weekend_summary_path}")
+    print(f"周末阅读看板（{weekend_dashboard_count} 条）：{weekend_dashboard_path}")
     print(f"报告：{report_path}")
     print(f"索引：{index_path}")
     return 0

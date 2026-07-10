@@ -5,6 +5,7 @@ import html
 import json
 import math
 import re
+import sqlite3
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,6 +36,7 @@ DEFAULT_INDEX = "sh000001"
 DEFAULT_SYMBOLS: list[str] = []
 DEFAULT_OUT_DIR = REPLAY_ROOT / "plans"
 DEFAULT_CONFIG = REPLAY_ROOT / "plans" / "watchlist_config.json"
+MARKET_HISTORY_CACHE = REPLAY_ROOT / "data" / "market_history_cache.json"
 MOMENTUM_AREA_FLOOR = 0.0001001
 
 THEME_GROUPS = [
@@ -214,6 +216,166 @@ def read_full_market_frame(report_date: str) -> tuple[pd.DataFrame | None, Path 
     return df, path, None
 
 
+def full_market_file_date(path: Path) -> str | None:
+    match = re.search(r"(20\d{6})", path.name)
+    if not match:
+        return None
+    text = match.group(1)
+    return f"{text[:4]}-{text[4:6]}-{text[6:8]}"
+
+
+def daily_market_metrics_from_frame(df: pd.DataFrame) -> dict[str, Any]:
+    valid = df[df["pct"].notna()].copy()
+    if valid.empty:
+        return {}
+    up = int((valid["pct"] > 0).sum())
+    down = int((valid["pct"] < 0).sum())
+    return {
+        "sample": int(len(valid)),
+        "up": up,
+        "down": down,
+        "flat": int((valid["pct"] == 0).sum()),
+        "up_ratio": up / (up + down) if up + down else None,
+        "median_pct": safe_float(valid["pct"].median()),
+        "limit_up": int((valid["pct"] >= 9.8).sum()),
+        "limit_down": int((valid["pct"] <= -9.8).sum()),
+        "gt5": int((valid["pct"] >= 5).sum()),
+        "lt5": int((valid["pct"] <= -5).sum()),
+        "amount_100m": safe_float(valid["amount_wan"].sum() / 10000),
+        "main_net_100m": safe_float(valid["main_net_wan"].sum() / 10000),
+        "open_up": int((valid["open_pct"] > 0).sum()),
+        "open_down": int((valid["open_pct"] < 0).sum()),
+    }
+
+
+def percentile_rank(values: list[float], value: float | None) -> float | None:
+    if value is None:
+        return None
+    nums = [float(v) for v in values if v is not None and math.isfinite(float(v))]
+    if not nums:
+        return None
+    return sum(1 for v in nums if v <= value) / len(nums)
+
+
+def select_full_market_files_until(report_date: str) -> dict[str, Path]:
+    files_by_date: dict[str, Path] = {}
+    for path in sorted(DATA_DIR.glob("全部Ａ股20*.xls*"), key=lambda p: (p.name, -p.stat().st_size)):
+        date_text = full_market_file_date(path)
+        if not date_text or date_text > report_date:
+            continue
+        current = files_by_date.get(date_text)
+        if (
+            current is None
+            or (path.suffix.lower() == ".xlsx" and current.suffix.lower() != ".xlsx")
+            or path.stat().st_size > current.stat().st_size
+        ):
+            files_by_date[date_text] = path
+    return files_by_date
+
+
+def file_signature(path: Path) -> dict[str, Any]:
+    stat = path.stat()
+    return {
+        "path": str(path),
+        "size": int(stat.st_size),
+        "mtime_ns": int(stat.st_mtime_ns),
+    }
+
+
+def load_market_history_cache() -> dict[str, Any]:
+    if not MARKET_HISTORY_CACHE.exists():
+        return {"version": 1, "files": {}, "rows": {}}
+    try:
+        cache = json.loads(MARKET_HISTORY_CACHE.read_text(encoding="utf-8"))
+    except Exception:
+        return {"version": 1, "files": {}, "rows": {}}
+    if not isinstance(cache, dict):
+        return {"version": 1, "files": {}, "rows": {}}
+    cache.setdefault("version", 1)
+    cache.setdefault("files", {})
+    cache.setdefault("rows", {})
+    return cache
+
+
+def write_market_history_cache(cache: dict[str, Any]) -> None:
+    MARKET_HISTORY_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    MARKET_HISTORY_CACHE.write_text(json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def market_metrics_from_file(path: Path) -> dict[str, Any] | None:
+    try:
+        raw = pd.read_excel(path)
+    except Exception:
+        return None
+    if raw.shape[1] < 28:
+        return None
+    df = pd.DataFrame(
+        {
+            "pct": number_series(raw.iloc[:, 4]),
+            "amount_wan": number_series(raw.iloc[:, 12]),
+            "main_net_wan": number_series(raw.iloc[:, 14]),
+            "open_pct": number_series(raw.iloc[:, 22]),
+        }
+    )
+    return daily_market_metrics_from_frame(df)
+
+
+def build_market_history_context(report_date: str, lookback: int = 20) -> dict[str, Any]:
+    cache = load_market_history_cache()
+    rows_by_date: dict[str, dict[str, Any]] = cache.get("rows") or {}
+    files_cache: dict[str, dict[str, Any]] = cache.get("files") or {}
+    files_by_date = select_full_market_files_until(report_date)
+    changed = False
+    for date_text, path in sorted(files_by_date.items()):
+        signature = file_signature(path)
+        cached_signature = files_cache.get(date_text) or {}
+        cached_row = rows_by_date.get(date_text)
+        if cached_row and cached_signature == signature:
+            continue
+        metrics = market_metrics_from_file(path)
+        if metrics:
+            metrics["date"] = date_text
+            rows_by_date[date_text] = metrics
+            files_cache[date_text] = signature
+            changed = True
+    stale_dates = [date for date in rows_by_date if date > report_date or date not in files_by_date]
+    for date_text in stale_dates:
+        rows_by_date.pop(date_text, None)
+        files_cache.pop(date_text, None)
+        changed = True
+    if changed:
+        cache["files"] = files_cache
+        cache["rows"] = rows_by_date
+        write_market_history_cache(cache)
+
+    rows = [row for _, row in sorted(rows_by_date.items()) if str(row.get("date") or "") <= report_date]
+    if not rows:
+        return {}
+    rows = rows[-lookback:]
+    today = next((row for row in rows if row.get("date") == report_date), rows[-1])
+    hist = [row for row in rows if row is not today]
+    if len(hist) < 5:
+        hist = rows
+    percentile_fields = ["up_ratio", "median_pct", "limit_up", "limit_down", "gt5", "lt5", "amount_100m", "main_net_100m"]
+    percentiles = {
+        field: percentile_rank([safe_float(row.get(field)) for row in hist], safe_float(today.get(field)))
+        for field in percentile_fields
+    }
+    medians = {
+        field: safe_float(pd.Series([safe_float(row.get(field)) for row in hist]).dropna().median())
+        for field in percentile_fields
+    }
+    return {
+        "lookback": len(rows),
+        "history_days": len(hist),
+        "today": today,
+        "percentiles": percentiles,
+        "medians": medians,
+        "rows": rows,
+        "cache_file": str(MARKET_HISTORY_CACHE),
+    }
+
+
 def theme_groups_for_industry(industry: str | None) -> list[dict[str, Any]]:
     if not industry:
         return []
@@ -295,25 +457,7 @@ def build_market_ecology(report_date: str, focus_symbols: list[str]) -> dict[str
     if valid.empty:
         return {"available": False, "source_file": str(path), "error": "全A文件缺少有效涨幅数据"}
 
-    up = int((valid["pct"] > 0).sum())
-    down = int((valid["pct"] < 0).sum())
-    flat = int((valid["pct"] == 0).sum())
-    daily = {
-        "sample": int(len(valid)),
-        "up": up,
-        "down": down,
-        "flat": flat,
-        "up_ratio": up / (up + down) if up + down else None,
-        "median_pct": safe_float(valid["pct"].median()),
-        "limit_up": int((valid["pct"] >= 9.8).sum()),
-        "limit_down": int((valid["pct"] <= -9.8).sum()),
-        "gt5": int((valid["pct"] >= 5).sum()),
-        "lt5": int((valid["pct"] <= -5).sum()),
-        "amount_100m": safe_float(valid["amount_wan"].sum() / 10000),
-        "main_net_100m": safe_float(valid["main_net_wan"].sum() / 10000),
-        "open_up": int((valid["open_pct"] > 0).sum()),
-        "open_down": int((valid["open_pct"] < 0).sum()),
-    }
+    daily = daily_market_metrics_from_frame(valid)
 
     industries = (
         valid[valid["industry"].notna()]
@@ -395,6 +539,7 @@ def build_market_ecology(report_date: str, focus_symbols: list[str]) -> dict[str
         "available": True,
         "source_file": str(path),
         "daily": daily,
+        "history": build_market_history_context(report_date),
         "top_industries_by_avg": top_avg_records,
         "top_industries_by_amount": top_amount_records,
         "theme_mappings": theme_rows,
@@ -1088,6 +1233,470 @@ def action_rank(action: str) -> int:
     }.get(action, 9)
 
 
+def score_status(total: int) -> str:
+    if total >= 80:
+        return "进攻观察"
+    if total >= 65:
+        return "回踩试错"
+    if total >= 50:
+        return "强势观察"
+    if total >= 35:
+        return "防守观察"
+    return "禁止左侧"
+
+
+def score_status_class(total: int) -> str:
+    if total >= 80:
+        return "score-hot"
+    if total >= 65:
+        return "score-try"
+    if total >= 50:
+        return "score-watch"
+    if total >= 35:
+        return "score-defense"
+    return "score-ban"
+
+
+def clamp_score(value: float, limit: int) -> int:
+    return max(0, min(limit, int(round(value))))
+
+
+def build_stock_score(report: dict[str, Any], index_gate: str, ecology: dict[str, Any]) -> dict[str, Any]:
+    if report.get("is_stale"):
+        return {
+            "structure": "-",
+            "support": "-",
+            "relative_strength": "-",
+            "environment": "-",
+            "risk": "-",
+            "total": 0,
+            "status": "数据待更新",
+            "position": "数据待更新",
+            "vwap_dev_pct": None,
+        }
+    center = report.get("geometry_5m", {}).get("center")
+    close = safe_float(report.get("day", {}).get("close"))
+    day = report.get("day") or {}
+    exec_state = report.get("execution") or {}
+    state30 = report.get("state_30m") or {}
+    rel = report.get("relative_strength") or {}
+    geo = report.get("geometry_5m") or {}
+    pos = center_position(close, center)
+    dif30 = safe_float(state30.get("dif"))
+    macd30 = safe_float(state30.get("macd"))
+    slope30 = safe_float(state30.get("dif_slope_12"))
+    vwap_dev = safe_float(exec_state.get("vwap_dev_pct"))
+    day_high = safe_float(day.get("high"))
+    day_low = safe_float(day.get("low"))
+    open_price = safe_float(day.get("open"))
+    range_pct = ((day_high - day_low) / close * 100) if close and day_high and day_low else None
+    close_pos = ((close - day_low) / (day_high - day_low)) if close and day_high and day_low and day_high > day_low else None
+    downside_capture = safe_float(rel.get("downside_capture"))
+
+    structure = 0
+    if pos == "中枢上方":
+        structure += 12
+    elif pos == "中枢内部":
+        structure += 8
+    elif pos == "中枢下方":
+        structure += 4
+    if dif30 is not None and dif30 > 0:
+        structure += 6
+    elif macd30 is not None and macd30 > 0:
+        structure += 4
+    if slope30 is not None and slope30 > 0:
+        structure += 5
+    if macd30 is not None and macd30 > 0:
+        structure += 3
+    if (geo.get("down_area") or {}).get("bottom_divergence"):
+        structure += 3
+    if (geo.get("up_area") or {}).get("top_divergence"):
+        structure -= 4
+    structure = clamp_score(structure, 30)
+
+    support = 0
+    if vwap_dev is not None:
+        if vwap_dev >= 3:
+            support += 10
+        elif vwap_dev >= 0:
+            support += 8
+        elif vwap_dev >= -2:
+            support += 4
+        else:
+            support += 1
+    if close_pos is not None:
+        if close_pos >= 0.75:
+            support += 7
+        elif close_pos >= 0.50:
+            support += 5
+        elif close_pos >= 0.30:
+            support += 3
+    if open_price is not None and close is not None and close >= open_price:
+        support += 3
+    if exec_state.get("post10_vwap_broken"):
+        support -= 3
+    if exec_state.get("panic_flush"):
+        support -= 2
+    support = clamp_score(support, 25)
+
+    rs = 7
+    if rel.get("class") == "inverse_resistance_alpha":
+        rs += 5
+    elif rel.get("class") == "trend_amplifier_beta":
+        rs -= 1
+    if downside_capture is not None:
+        if downside_capture < 0.5:
+            rs += 4
+        elif downside_capture < 1.0:
+            rs += 2
+        elif downside_capture > 1.8:
+            rs -= 3
+        elif downside_capture > 1.2:
+            rs -= 1
+    if vwap_dev is not None and vwap_dev > 2:
+        rs += 2
+    rs = clamp_score(rs, 15)
+
+    daily = ecology.get("daily") or {}
+    up_ratio = safe_float(daily.get("up_ratio"))
+    median_pct = safe_float(daily.get("median_pct"))
+    if index_gate == "red":
+        environment = 9
+    elif index_gate == "yellow":
+        environment = 7
+    elif index_gate == "blue":
+        environment = 4
+    else:
+        environment = 6
+    if up_ratio is not None:
+        if up_ratio >= 0.60:
+            environment += 3
+        elif up_ratio <= 0.35:
+            environment -= 2
+    if median_pct is not None:
+        if median_pct > 0.5:
+            environment += 2
+        elif median_pct < -0.8:
+            environment -= 1
+    environment = clamp_score(environment, 15)
+
+    risk = 10
+    if pos == "中枢下方":
+        risk -= 3
+    elif pos == "中枢上方":
+        risk += 1
+    if range_pct is not None:
+        if range_pct >= 12:
+            risk -= 4
+        elif range_pct >= 8:
+            risk -= 2
+    if exec_state.get("panic_flush"):
+        risk -= 2
+    if exec_state.get("induced_chase_risk"):
+        risk -= 2
+    if downside_capture is not None and downside_capture > 1.5:
+        risk -= 2
+    if vwap_dev is not None and vwap_dev > 5:
+        risk -= 1
+    risk = clamp_score(risk, 15)
+
+    total = structure + support + rs + environment + risk
+    return {
+        "structure": structure,
+        "support": support,
+        "relative_strength": rs,
+        "environment": environment,
+        "risk": risk,
+        "total": total,
+        "status": score_status(total),
+        "position": pos,
+        "vwap_dev_pct": vwap_dev,
+    }
+
+
+def market_status(total: int) -> str:
+    if total >= 80:
+        return "进攻环境"
+    if total >= 65:
+        return "可试错环境"
+    if total >= 50:
+        return "震荡观察"
+    if total >= 35:
+        return "防守环境"
+    return "风险释放"
+
+
+def market_status_class(total: int) -> str:
+    if total >= 80:
+        return "score-hot"
+    if total >= 65:
+        return "score-try"
+    if total >= 50:
+        return "score-watch"
+    if total >= 35:
+        return "score-defense"
+    return "score-ban"
+
+
+def build_market_score(index: dict[str, Any], index_gate: str, ecology: dict[str, Any], judgment: dict[str, Any] | None) -> dict[str, Any]:
+    judgment = judgment or {}
+    daily = ecology.get("daily") or {}
+    up_ratio = safe_float(daily.get("up_ratio"))
+    median_pct = safe_float(daily.get("median_pct"))
+    limit_up = safe_float(daily.get("limit_up")) or 0
+    limit_down = safe_float(daily.get("limit_down")) or 0
+    gt5 = safe_float(daily.get("gt5")) or 0
+    lt5 = safe_float(daily.get("lt5")) or 0
+    main_net = safe_float(daily.get("main_net_100m"))
+    history = ecology.get("history") or {}
+    pctls = history.get("percentiles") or {}
+    limit_up_pct = safe_float(pctls.get("limit_up"))
+    limit_down_pct = safe_float(pctls.get("limit_down"))
+    gt5_pct = safe_float(pctls.get("gt5"))
+    lt5_pct = safe_float(pctls.get("lt5"))
+    up_ratio_pct = safe_float(pctls.get("up_ratio"))
+    median_pct_rank = safe_float(pctls.get("median_pct"))
+    amount_pct = safe_float(pctls.get("amount_100m"))
+    main_net_pct = safe_float(pctls.get("main_net_100m"))
+
+    breadth = 0
+    if up_ratio is not None:
+        if up_ratio >= 0.65:
+            breadth += 8
+        elif up_ratio >= 0.50:
+            breadth += 6
+        elif up_ratio >= 0.35:
+            breadth += 4
+        elif up_ratio >= 0.20:
+            breadth += 2
+        else:
+            breadth += 1
+    if up_ratio_pct is not None:
+        if up_ratio_pct >= 0.75:
+            breadth += 3
+        elif up_ratio_pct >= 0.55:
+            breadth += 2
+        elif up_ratio_pct <= 0.25:
+            breadth -= 1
+    if median_pct is not None:
+        if median_pct >= 1.0:
+            breadth += 3
+        elif median_pct >= 0:
+            breadth += 2
+        elif median_pct >= -0.5:
+            breadth += 1
+        elif median_pct <= -2.0:
+            breadth -= 2
+    if median_pct_rank is not None:
+        if median_pct_rank >= 0.75:
+            breadth += 2
+        elif median_pct_rank <= 0.25:
+            breadth -= 1
+    breadth = clamp_score(breadth, 15)
+
+    loss = 10
+    if limit_down > limit_up:
+        loss -= 3
+    if lt5 >= gt5 * 3 and lt5 > 200:
+        loss -= 4
+    elif lt5 >= gt5 * 1.5 and lt5 > 120:
+        loss -= 2
+    if limit_down_pct is not None:
+        if limit_down_pct >= 0.90 and limit_down >= 50:
+            loss -= 3
+        elif limit_down_pct >= 0.75 and limit_down >= 25:
+            loss -= 2
+    if lt5_pct is not None:
+        if lt5_pct >= 0.90 and lt5 >= 200:
+            loss -= 3
+        elif lt5_pct >= 0.75 and lt5 >= 120:
+            loss -= 2
+    if up_ratio is not None and up_ratio <= 0.35:
+        loss -= 2
+    if median_pct is not None and median_pct <= -2.0:
+        loss -= 2
+    elif median_pct is not None and median_pct <= -1.0:
+        loss -= 1
+    loss = clamp_score(loss, 10)
+
+    profit = 0
+    if limit_up >= 80 and (limit_up_pct is None or limit_up_pct >= 0.75):
+        profit += 3
+    elif limit_up >= 40 and (limit_up_pct is None or limit_up_pct >= 0.55):
+        profit += 2
+    elif limit_up >= 20:
+        profit += 1
+    if gt5 >= 400 and (gt5_pct is None or gt5_pct >= 0.75):
+        profit += 3
+    elif gt5 >= 200 and (gt5_pct is None or gt5_pct >= 0.55):
+        profit += 2
+    elif gt5 >= 100:
+        profit += 1
+    if up_ratio is not None and median_pct is not None:
+        if up_ratio >= 0.55 and median_pct >= 0:
+            profit += 2
+        elif up_ratio >= 0.45 and median_pct >= -0.20:
+            profit += 1
+    if main_net is not None and main_net >= 300 and (main_net_pct is None or main_net_pct >= 0.70):
+        profit += 2
+    elif main_net is not None and main_net >= 100 and (main_net_pct is None or main_net_pct >= 0.55):
+        profit += 1
+    if amount_pct is not None and amount_pct >= 0.65:
+        profit += 1
+    if amount_pct is not None and amount_pct < 0.35 and profit >= 8:
+        profit = 7
+    profit = clamp_score(profit, 10)
+
+    strong_industries = [
+        row for row in (ecology.get("top_industries_by_avg") or [])[:10]
+        if (safe_float(row.get("avg_pct")) or -99) > 0 and (safe_float(row.get("gt5")) or 0) >= 1
+    ]
+    theme = 1
+    if len(strong_industries) >= 6:
+        theme = 6
+    elif len(strong_industries) >= 4:
+        theme = 5
+    elif len(strong_industries) >= 2:
+        theme = 3
+    elif strong_industries:
+        theme = 2
+    top_theme = (ecology.get("theme_mappings") or [{}])[0]
+    top_theme_gt5 = safe_float(top_theme.get("gt5"))
+    top_theme_amount = safe_float(top_theme.get("amount_100m"))
+    if top_theme_gt5 is not None and top_theme_gt5 >= 80:
+        theme += 1
+    if top_theme_amount is not None and top_theme_amount >= 5000:
+        theme += 1
+    if amount_pct is not None and amount_pct < 0.35 and theme >= 7:
+        theme -= 1
+    if up_ratio is not None and up_ratio < 0.35 and theme >= 6:
+        theme -= 1
+    theme = clamp_score(theme, 8)
+
+    sentiment_rule = breadth + loss + profit + theme
+
+    expert_base = 4
+    ai_adjust = judgment.get("market_score_adjustment") or {}
+    sentiment_ai = clamp_score(safe_float(ai_adjust.get("sentiment")) or 0, 7)
+    sentiment = clamp_score(sentiment_rule + expert_base + sentiment_ai, 50)
+
+    center = index.get("geometry_5m", {}).get("center")
+    close = safe_float(index.get("day", {}).get("close"))
+    pos = center_position(close, center)
+    state30 = index.get("state_30m") or {}
+    dif = safe_float(state30.get("dif"))
+    macd = safe_float(state30.get("macd"))
+    slope = safe_float(state30.get("dif_slope_12"))
+    exec_state = index.get("execution") or {}
+    vwap_dev = safe_float(exec_state.get("vwap_dev_pct"))
+
+    center = index.get("geometry_5m", {}).get("center")
+    zd = safe_float((center or {}).get("ZD"))
+    zg = safe_float((center or {}).get("ZG"))
+    position_score = {"中枢上方": 12, "中枢内部": 8, "中枢下方": 3}.get(pos, 5)
+    if close is not None and zg is not None and close > zg:
+        leave_pct = (close - zg) / zg * 100 if zg else 0
+        if leave_pct >= 1.0:
+            position_score += 3
+        elif leave_pct >= 0.3:
+            position_score += 2
+        else:
+            position_score += 1
+    if close is not None and zd is not None and close < zd:
+        position_score -= 1
+    if amount_pct is not None and amount_pct < 0.25 and position_score >= 13:
+        position_score -= 1
+    if median_pct is not None and median_pct < 0 and position_score >= 13:
+        position_score -= 1
+    position_score = clamp_score(position_score, 15)
+    momentum = 0
+    if dif is not None and dif > 0:
+        momentum += 5
+    if macd is not None and macd > 0:
+        momentum += 3
+    if slope is not None and slope > 0:
+        momentum += 2
+    if dif is not None and dif < 0 and momentum > 7:
+        momentum = 7
+    if dif is not None and dif < 0 and amount_pct is not None and amount_pct < 0.35 and momentum > 6:
+        momentum = 6
+    momentum = clamp_score(momentum, 12)
+    key_level = 0
+    if index_gate == "red":
+        key_level += 4
+    elif index_gate == "yellow":
+        key_level += 3
+    if close is not None and zg is not None and close >= zg:
+        key_level += 2
+    if close is not None and zd is not None and close >= zd:
+        key_level += 1
+    if close is not None and safe_float((index.get("day") or {}).get("high")) is not None:
+        day_high = safe_float((index.get("day") or {}).get("high"))
+        if day_high and close >= day_high * 0.995:
+            key_level += 1
+    key_level = clamp_score(key_level, 8)
+    volume_price = 0
+    if amount_pct is not None:
+        if amount_pct >= 0.75:
+            volume_price += 3
+        elif amount_pct >= 0.50:
+            volume_price += 2
+        elif amount_pct >= 0.35:
+            volume_price += 1
+    if main_net is not None:
+        if main_net >= 300 and (main_net_pct is None or main_net_pct >= 0.70):
+            volume_price += 3
+        elif main_net >= 100 and (main_net_pct is None or main_net_pct >= 0.55):
+            volume_price += 2
+        elif main_net > 0:
+            volume_price += 1
+    if up_ratio is not None and median_pct is not None and up_ratio >= 0.50 and median_pct >= 0:
+        volume_price += 2
+    elif up_ratio is not None and median_pct is not None and up_ratio >= 0.45 and median_pct >= -0.20:
+        volume_price += 1
+    if amount_pct is not None and amount_pct < 0.25 and volume_price >= 5:
+        volume_price -= 1
+    volume_price = clamp_score(volume_price, 8)
+    path_quality = {"red": 5, "yellow": 3, "blue": 1}.get(index_gate, 2)
+    if index_gate == "red" and close is not None and zg is not None and close > zg:
+        path_quality += 1
+    if amount_pct is not None and amount_pct >= 0.50 and up_ratio is not None and up_ratio >= 0.50:
+        path_quality += 1
+    if amount_pct is not None and amount_pct < 0.35 and median_pct is not None and median_pct < 0:
+        path_quality -= 1
+    if dif is not None and dif < 0 and path_quality > 6:
+        path_quality = 6
+    path_quality = clamp_score(path_quality, 7)
+    technical_rule = position_score + momentum + key_level + volume_price + path_quality
+    technical_ai = max(-5, min(5, int(round(safe_float(ai_adjust.get("technical")) or 0))))
+    technical = clamp_score(technical_rule + technical_ai, 50)
+
+    total = sentiment + technical
+    return {
+        "sentiment": sentiment,
+        "technical": technical,
+        "total": total,
+        "status": market_status(total),
+        "ai_adjustment": {
+            "sentiment": sentiment_ai,
+            "technical": technical_ai,
+            "reason": ai_adjust.get("reason") or "AI修正未填写，当前仅使用规则层评分。",
+        },
+        "components": {
+            "breadth": breadth,
+            "loss_effect": loss,
+            "profit_effect": profit,
+            "theme_consistency": theme,
+            "expert_signal": expert_base + sentiment_ai,
+            "structure_position": position_score,
+            "thirty_min_momentum": momentum,
+            "key_level": key_level,
+            "volume_price": volume_price,
+            "path_quality": path_quality,
+        },
+    }
+
+
 def render_projection_line(proj: dict[str, Any]) -> str:
     return projection_text(proj)
 
@@ -1741,9 +2350,82 @@ def read_expert_markdown_digest(report_date: str, base_dir: Path = REPLIES_DIR) 
     }
 
 
+def read_marked_expert_evidence(report_date: str) -> dict[str, Any]:
+    db_path = REPLAY_ROOT / "data" / "forum_watchlist.sqlite"
+    if not db_path.exists():
+        return {}
+    conn = None
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT
+                posts.id,
+                posts.url,
+                posts.title,
+                posts.content,
+                posts.published_at,
+                posts.crawled_at,
+                sites.name AS site_name,
+                watch_targets.display_name AS author_name,
+                watch_targets.style,
+                post_marks.useful,
+                post_marks.refine
+            FROM posts
+            JOIN sites ON sites.id = posts.site_id
+            JOIN watch_targets ON watch_targets.id = posts.target_id
+            JOIN post_marks ON post_marks.post_id = posts.id
+            WHERE watch_targets.enabled = 1
+              AND sites.enabled = 1
+              AND post_marks.noise = 0
+              AND post_marks.useful = 1
+              AND substr(COALESCE(NULLIF(posts.published_at, ''), posts.crawled_at), 1, 10) = ?
+            ORDER BY post_marks.useful DESC,
+                     COALESCE(NULLIF(posts.published_at, ''), posts.crawled_at) DESC,
+                     posts.id DESC
+            LIMIT 20
+            """,
+            (str(report_date),),
+        ).fetchall()
+    except sqlite3.Error:
+        return {}
+    finally:
+        if conn is not None:
+            conn.close()
+    if not rows:
+        return {}
+
+    quotes = []
+    for row in rows:
+        content = str(row["content"] or "").strip()
+        quote = useful_quote_from_body(content) or content[:72]
+        source_time = str(row["published_at"] or row["crawled_at"] or "")
+        source = f"{row['site_name']} / {row['author_name']}"
+        if len(source_time) >= 16:
+            source = f"{source} · {source_time[11:16]}"
+        quotes.append(
+            {
+                "tag": "有用",
+                "source": source,
+                "quote": quote,
+                "context": "来自阅读中心的人工标记证据池；已排除噪音。",
+                "takeaway": "人工认为这条发言对复盘有价值，AI总结阶段应优先参考，但仍需结合盘面结构确认。",
+                "action": "作为高手观点证据进入复盘，不单独触发交易。",
+                "url": row["url"] or "",
+            }
+        )
+    return {
+        "source_marked_evidence": str(db_path),
+        "selection_rule": "人工标记证据池优先：只纳入有用，排除噪音；AI复盘阶段基于这些人工筛选内容再总结。",
+        "quotes": quotes,
+    }
+
+
 def merged_expert_digest(config_digest: dict[str, Any], report_date: str, curated_digest: dict[str, Any] | None = None) -> dict[str, Any]:
     markdown_digest = read_expert_markdown_digest(report_date)
     dashboard_digest = read_expert_dashboard(report_date)
+    marked_digest = read_marked_expert_evidence(report_date)
     config_updated_at = str((config_digest or {}).get("updated_at") or "")
     config_matches = str(report_date) in config_updated_at
     curated = curated_digest or {}
@@ -1755,6 +2437,11 @@ def merged_expert_digest(config_digest: dict[str, Any], report_date: str, curate
     merged = dict(dashboard_digest or {})
     if markdown_digest:
         merged.update({key: value for key, value in markdown_digest.items() if value not in (None, "", [])})
+    if marked_digest:
+        existing_quotes = list(merged.get("quotes") or [])
+        marked_quotes = list(marked_digest.get("quotes") or [])
+        merged.update({key: value for key, value in marked_digest.items() if key != "quotes" and value not in (None, "", [])})
+        merged["quotes"] = marked_quotes + existing_quotes
     if config_matches:
         merged.update({key: value for key, value in (config_digest or {}).items() if value not in (None, "", [])})
     if curated_matches:
@@ -2134,29 +2821,34 @@ def index_action_paths(index: dict[str, Any]) -> dict[str, dict[str, Any]]:
     if close is not None and zg is not None and close > zg:
         day = index.get("day") or {}
         state30 = index.get("state_30m") or {}
-        proj30 = index.get("projection_30m") or {}
-        th30 = proj30.get("thresholds") or {}
         post10_low = safe_float(day.get("post10_low"))
-        first30_close = safe_float(day.get("first30_close"))
-        repair_gate = safe_float(th.get("next_close_for_dif_above_last_bottom")) or first30_close or close
-        macd_gate = macd_floor or post10_low or close
-        inner_hold = max(x for x in [post10_low, macd_gate] if x is not None)
-        higher_repair = safe_float(th.get("next_close_for_dif_above_prev_bottom"))
-        thirty_zg = safe_float(proj30.get("zg"))
-        thirty_macd = safe_float(th30.get("flat_close_for_macd_improve"))
-        red_target = higher_repair or thirty_macd or safe_float(day.get("high")) or close
+        high = safe_float(day.get("high"))
+        dif = safe_float(state30.get("dif"))
+        red_base = high or close
+        red_target = max(x for x in [red_base, close] if x is not None)
+        if red_target is not None:
+            red_target = max(red_target, close)
+        hold_line = max(x for x in [zg, close * 0.99 if close is not None else None] if x is not None)
+        inner_hold = max(x for x in [post10_low, zg] if x is not None)
+        if close is not None and inner_hold is not None and inner_hold > close:
+            inner_hold = zg
         yellow_label = (
-            f"{price(inner_hold)}-{price(repair_gate)}"
-            if inner_hold is not None and repair_gate is not None and abs(inner_hold - repair_gate) > 0.01
-            else price(inner_hold or repair_gate)
+            f"{price(zg)}-{price(hold_line)}"
+            if zg is not None and hold_line is not None and abs(zg - hold_line) > 0.01
+            else price(inner_hold or hold_line or zg)
         )
-        blue_first = thirty_zg or zg
+        blue_first = zd or zg
+        red_title = (
+            f"红色路径：放量站稳 {price(red_target)}，再看续强"
+            if dif is not None and dif < 0
+            else f"红色路径：站稳离开段 {price(red_target)}，再看续强"
+        )
         return {
             "red": {
-                "title": f"红色路径：站稳离开段 {price(repair_gate)}，再看 {price(red_target)}",
+                "title": red_title,
                 "items": [
-                    "不是守老中枢，而是确认向上离开段继续有效。",
-                    "5m DIF修复后，回踩不破离开段承接才算强结构延续。",
+                    "不是提前看远端压力，而是确认收盘附近的离开段继续有效。",
+                    "若30m DIF仍未转正，必须配合放量和主线核心承接。",
                     "确认前不追正偏离急拉，只做核心方向。"
                 ],
             },
@@ -2169,10 +2861,10 @@ def index_action_paths(index: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 ],
             },
             "blue": {
-                "title": f"蓝色路径：跌回30m/5m防线 {price(blue_first)}，再看 {price(zg)}",
+                "title": f"蓝色路径：跌回中枢防线 {price(zg)}，再看 {price(blue_first)}",
                 "items": [
-                    "跌回30m中枢上沿附近，说明离开段承接失败。",
-                    f"{price(zg)} 是上一5m中枢上沿，只作为最后降级线，不是第一观察位。",
+                    "跌回5m中枢上沿下方，说明今日离开段承接失败。",
+                    f"{price(blue_first)} 是5m中枢下沿，失守则重新按弱震荡处理。",
                     "跌回老中枢内则新增信号降级，等待重新构造。"
                 ],
             },
@@ -2217,6 +2909,7 @@ def render_dashboard_market_overview(
     action_paths: dict[str, dict[str, Any]],
     judgment: dict[str, Any] | None = None,
 ) -> str:
+    judgment = judgment or {}
     center = index.get("geometry_5m", {}).get("center")
     day = index.get("day") or {}
     state30 = index.get("state_30m") or {}
@@ -2251,6 +2944,8 @@ def render_dashboard_market_overview(
         structure_text = f"上证收 {price(close)}，落在5m{pos}；站上 {price(zg)} 才转强，跌破 {price(zd)} 转防守。30m DIF {price(dif, 3)}，斜率{slope_text}，先看承接质量。"
     else:
         structure_text = f"上证收 {price(close)}，落在5m{pos}；30m DIF {price(dif, 3)}，斜率{slope_text}。结构位不完整时，先按VWAP和承接质量观察。"
+    gate_text = str(judgment.get("summary") or gate_text)
+    structure_text = str(judgment.get("structure") or structure_text)
     return f"""
     <div class="market-overview">
       <b>大盘总体分析</b>
@@ -2276,6 +2971,100 @@ def render_dashboard_market_overview(
     """
 
 
+def render_market_score_panel(score: dict[str, Any]) -> str:
+    if not score:
+        return ""
+    adjustment = score.get("ai_adjustment") or {}
+    components = score.get("components") or {}
+    total = int(score.get("total") or 0)
+    component_rows = [
+        ("宽度", components.get("breadth"), 15),
+        ("亏钱效应", components.get("loss_effect"), 10),
+        ("赚钱效应", components.get("profit_effect"), 10),
+        ("主线一致", components.get("theme_consistency"), 8),
+        ("高手情绪", components.get("expert_signal"), 11),
+        ("5m位置", components.get("structure_position"), 15),
+        ("30m动量", components.get("thirty_min_momentum"), 12),
+        ("关键位", components.get("key_level"), 8),
+        ("量价", components.get("volume_price"), 8),
+        ("路径质量", components.get("path_quality"), 7),
+    ]
+    chips = "".join(
+        f'<span title="{h(label)}：{h(value)} / {h(limit)}">{h(label)} {h(value)}/{h(limit)}</span>'
+        for label, value, limit in component_rows
+    )
+    return f"""
+    <section class="market-score-panel">
+      <div class="market-score-main">
+        <div>
+          <small>大盘总闸评分</small>
+          <strong>{h(total)}</strong>
+          <span class="score-pill {market_status_class(total)}">{h(score.get('status'))}</span>
+        </div>
+        <div>
+          <small>情绪面</small>
+          <b>{h(score.get('sentiment'))} / 50</b>
+        </div>
+        <div>
+          <small>技术面</small>
+          <b>{h(score.get('technical'))} / 50</b>
+        </div>
+      </div>
+      <p><b>AI修正：</b>情绪 {h(adjustment.get('sentiment'))}，技术 {h(adjustment.get('technical'))}。{h(adjustment.get('reason'))}</p>
+      <div class="market-score-components">{chips}</div>
+    </section>
+    """
+
+
+def render_stock_scoreboard(stocks: list[dict[str, Any]]) -> str:
+    headers = [
+        ("标的", "当前跟踪标的名称。"),
+        ("结构分", "满分30：看5m中枢位置、30m DIF/MACD方向、背驰/动量结构。"),
+        ("承接分", "满分25：看VWAP、尾盘位置、日内回落后是否能收回关键位。"),
+        ("相对强弱", "满分15：看个股在指数风险窗口里的抗跌或放大下跌程度。"),
+        ("环境分", "满分15：看指数总闸、全A宽度、中位涨幅等外部环境。"),
+        ("风险分", "满分15：分数越高越安全；急拉、深水、诱多、跌破中枢会扣分。"),
+        ("总分", "五项合计，辅助判断优先级，不替代下方AI深度复盘。"),
+        ("状态", "按总分给出的简短动作层级：进攻观察、回踩试错、强势观察、防守观察、禁止左侧。"),
+    ]
+    head = "".join(f'<th title="{h(tip)}">{h(label)}</th>' for label, tip in headers)
+    rows = []
+    for report in sorted(stocks, key=lambda item: (item.get("score") or {}).get("total", 0), reverse=True):
+        score = report.get("score") or {}
+        pos = report.get("position") or {}
+        name = pos.get("name") or report.get("symbol")
+        symbol = report.get("symbol")
+        total = int(score.get("total") or 0)
+        rows.append(
+            f"""
+            <tr>
+              <td><strong>{h(name)}</strong><small>{h(symbol)}</small></td>
+              <td>{h(score.get('structure'))}</td>
+              <td>{h(score.get('support'))}</td>
+              <td>{h(score.get('relative_strength'))}</td>
+              <td>{h(score.get('environment'))}</td>
+              <td>{h(score.get('risk'))}</td>
+              <td><b>{h(total)}</b></td>
+              <td><span class="score-pill {score_status_class(total)}">{h(score.get('status'))}</span></td>
+            </tr>
+            """
+        )
+    return f"""
+    <section class="scoreboard-panel">
+      <div class="scoreboard-head">
+        <h2 class="section-title">跟踪标的评分</h2>
+        <p>评分用于先排优先级：先看高分票的回踩承接，低分票只保留风险观察。</p>
+      </div>
+      <div class="score-table-wrap">
+        <table class="score-table">
+          <thead><tr>{head}</tr></thead>
+          <tbody>{''.join(rows)}</tbody>
+        </table>
+      </div>
+    </section>
+    """
+
+
 def render_stock_card(report: dict[str, Any], index_gate: str) -> str:
     pos = (report.get("position") or {})
     action, reason = classify_symbol(report, index_gate, pos)
@@ -2295,6 +3084,17 @@ def render_stock_card(report: dict[str, Any], index_gate: str) -> str:
         f"收在5m{pos_label}，30m DIF{slope_text}，VWAP偏离 {pct(vwap_dev)}。"
     )
     takeaway = str(judgment.get("takeaway") or "").strip() or takeaway
+    summary_text = str(judgment.get("summary") or dashboard_stock_summary_text(report, action))
+    structure_text = str(judgment.get("structure") or dashboard_stock_structure_text(report))
+    theme_plan_text = str(judgment.get("theme_plan") or dashboard_stock_theme_plan_text(report, index_gate, pos, reason))
+    badge_text = str(judgment.get("action_label") or action_label(action))
+    if report.get("is_stale"):
+        stale_date = report.get("day", {}).get("date") or "未知日期"
+        badge_text = "数据待更新"
+        takeaway = f"{symbol} {name}：高频数据仍停留在 {stale_date}，不纳入今日正式评分和交易结论。"
+        summary_text = "请补齐当天 5m/30m 高频数据后再重新生成看板。"
+        structure_text = "当前卡片仅保留观察池占位，避免旧数据误导今天判断。"
+        theme_plan_text = "今日不做执行判断。"
     title = f"{symbol} {name}" if name != symbol else symbol
     return f"""
     <article class="stock-card {css_class_for_action(action)}">
@@ -2302,22 +3102,22 @@ def render_stock_card(report: dict[str, Any], index_gate: str) -> str:
         <div>
           <h3>{h(title)}</h3>
         </div>
-        <span class="action-badge">{h(action_label(action))}</span>
+        <span class="action-badge">{h(badge_text)}</span>
       </div>
       <div class="takeaway">{h(takeaway)}</div>
       <div class="levels">{render_level_pills(report)}</div>
       <div class="stock-sections">
         <section>
           <b>结论</b>
-          <span>{h(dashboard_stock_summary_text(report, action))}</span>
+          <span>{h(summary_text)}</span>
         </section>
         <section>
           <b>结构</b>
-          <span>{h(dashboard_stock_structure_text(report))}</span>
+          <span>{h(structure_text)}</span>
         </section>
         <section>
           <b>题材与执行</b>
-          <span>{h(dashboard_stock_theme_plan_text(report, index_gate, pos, reason))}</span>
+          <span>{h(theme_plan_text)}</span>
         </section>
       </div>
     </article>
@@ -2341,13 +3141,19 @@ def render_dashboard_html(data: dict[str, Any]) -> str:
         report["position"] = positions.get(report["symbol"]) or {}
         report["theme_attribution"] = theme_by_symbol.get(report["symbol"]) or {}
         report["judgment"] = (data.get("stock_judgments") or {}).get(report["symbol"]) or {}
+        report["is_stale"] = (report.get("day") or {}).get("date") != data.get("date")
+        report["score"] = build_stock_score(report, index_gate, market_ecology)
     ranked = sorted(stocks, key=lambda r: action_rank(classify_symbol(r, index_gate, r.get("position") or {})[0]))
 
+    market_score = build_market_score(index, index_gate, market_ecology, data.get("index_judgment"))
+    data["market_score"] = market_score
     market_overview_html = render_dashboard_market_overview(index, index_gate, market_ecology, action_paths, data.get("index_judgment"))
     market_ecology_html = render_dashboard_market_ecology(market_ecology)
     expert_digest_html = render_dashboard_expert_digest(data.get("expert_digest") or {})
     expert_quotes_html = render_dashboard_expert_quotes(data.get("expert_digest") or {})
 
+    market_score_html = render_market_score_panel(market_score)
+    stock_scoreboard_html = render_stock_scoreboard(stocks)
     stock_cards = "\n".join(render_stock_card(report, index_gate) for report in ranked)
 
     return f"""<!doctype html>
@@ -2395,6 +3201,15 @@ def render_dashboard_html(data: dict[str, Any]) -> str:
     .module-title {{ display: flex; justify-content: space-between; gap: 12px; align-items: baseline; margin-bottom: 8px; }}
     .module-title b {{ font-size: 16px; }}
     .module-title span {{ color: var(--muted); font-size: 13px; }}
+    .market-score-panel {{ margin: 10px 0 12px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #ffffff; }}
+    .market-score-main {{ display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; align-items: stretch; }}
+    .market-score-main > div {{ border: 1px solid #edf0f5; border-radius: 8px; padding: 10px; background: #f8fafc; }}
+    .market-score-main small {{ display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }}
+    .market-score-main strong {{ display: inline-block; font-size: 30px; line-height: 1; margin-right: 8px; }}
+    .market-score-main b {{ font-size: 20px; }}
+    .market-score-panel p {{ margin: 10px 0 8px; color: #344054; font-size: 13px; }}
+    .market-score-components {{ display: flex; flex-wrap: wrap; gap: 6px; }}
+    .market-score-components span {{ border: 1px solid var(--line); border-radius: 999px; padding: 4px 8px; background: #fbfdff; color: #475467; font-size: 12px; }}
     .market-overview {{ padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #ffffff; }}
     .market-overview b {{ display: block; margin-bottom: 5px; font-size: 14px; }}
     .overview-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }}
@@ -2457,6 +3272,23 @@ def render_dashboard_html(data: dict[str, Any]) -> str:
     .quote-card p b {{ color: #17202a; }}
     .quote-card a {{ margin-top: auto; color: #245985; font-size: 13px; font-weight: 800; text-decoration: none; }}
     .section-title {{ margin: 22px 0 10px; font-size: 18px; }}
+    .scoreboard-panel {{ margin: 18px 0 14px; }}
+    .scoreboard-head {{ display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; }}
+    .scoreboard-head .section-title {{ margin-bottom: 8px; }}
+    .scoreboard-head p {{ margin: 0 0 10px; color: var(--muted); font-size: 13px; }}
+    .score-table-wrap {{ overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); box-shadow: var(--shadow); }}
+    .score-table {{ width: 100%; border-collapse: collapse; min-width: 860px; }}
+    .score-table th, .score-table td {{ padding: 10px 12px; border-bottom: 1px solid #edf0f5; text-align: center; font-size: 13px; }}
+    .score-table th {{ background: #f8fafc; color: #344054; font-weight: 800; cursor: help; }}
+    .score-table td:first-child, .score-table th:first-child {{ text-align: left; }}
+    .score-table td small {{ display: block; margin-top: 2px; color: var(--muted); font-size: 11px; }}
+    .score-table tbody tr:last-child td {{ border-bottom: 0; }}
+    .score-pill {{ display: inline-flex; align-items: center; justify-content: center; min-width: 72px; border-radius: 999px; padding: 4px 9px; font-weight: 800; font-size: 12px; }}
+    .score-hot {{ background: #e8f7ef; color: #087443; }}
+    .score-try {{ background: #eef5ff; color: #1f4e79; }}
+    .score-watch {{ background: #fff8e8; color: #945f0c; }}
+    .score-defense {{ background: #f2f4f7; color: #475467; }}
+    .score-ban {{ background: #fff1ef; color: #b42318; }}
     .cards {{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }}
     .stock-card {{ background: var(--panel); border: 1px solid var(--line); border-top: 5px solid var(--blue); border-radius: 8px; padding: 14px; box-shadow: var(--shadow); }}
     .action-wait {{ border-top-color: var(--amber); }}
@@ -2487,7 +3319,9 @@ def render_dashboard_html(data: dict[str, Any]) -> str:
     footer {{ color: var(--muted); margin: 22px 0 4px; font-size: 12px; }}
     @media (max-width: 920px) {{
       .page {{ padding: 14px; }}
+      .market-score-main {{ grid-template-columns: 1fr; }}
       .cards, .tree, .overview-grid, .path-mini-grid, .expert-metrics, .expert-summary-grid, .expert-wide-grid, .brief-grid, .quote-grid {{ grid-template-columns: 1fr; }}
+      .scoreboard-head {{ display: block; }}
       .overview-grid section.wide {{ grid-column: auto; }}
       .decision-row {{ grid-template-columns: 1fr; gap: 4px; }}
       .levels {{ grid-template-columns: 1fr 1fr; }}
@@ -2508,6 +3342,7 @@ def render_dashboard_html(data: dict[str, Any]) -> str:
             <b>盘面与题材复盘</b>
             <span>结构、全市场题材、跟踪对象判断合并阅读。</span>
           </div>
+          {market_score_html}
           {market_overview_html}
           {market_ecology_html}
           {expert_digest_html}
@@ -2516,6 +3351,8 @@ def render_dashboard_html(data: dict[str, Any]) -> str:
     </section>
 
     {expert_quotes_html}
+
+    {stock_scoreboard_html}
 
     <h2 class="section-title">标的复盘</h2>
     <section class="cards">{stock_cards}</section>
@@ -2618,9 +3455,36 @@ def normalize_action_paths(action_paths: dict[str, Any] | None) -> dict[str, dic
     return result
 
 
+def normalize_tomorrow_paths(paths: list[Any] | None) -> dict[str, dict[str, Any]]:
+    result: dict[str, dict[str, Any]] = {}
+    color_map = {"红": "red", "red": "red", "黄": "yellow", "yellow": "yellow", "蓝": "blue", "blue": "blue"}
+    label_map = {"red": "红色路径", "yellow": "黄色路径", "blue": "蓝色路径"}
+    for item in paths or []:
+        if not isinstance(item, dict):
+            continue
+        key = color_map.get(str(item.get("color") or "").strip().lower()) or color_map.get(str(item.get("color") or "").strip())
+        if key not in {"red", "yellow", "blue"}:
+            continue
+        title = str(item.get("title") or "").strip()
+        if title and "路径：" not in title:
+            title = f"{label_map[key]}：{title}"
+        text = str(item.get("text") or "").strip()
+        result[key] = {
+            "title": title or f"{label_map[key]}：待判断",
+            "items": [text] if text else [],
+        }
+    if all(key in result for key in ("red", "yellow", "blue")):
+        return result
+    return {}
+
+
 def final_index_action_paths(index: dict[str, Any], judgment: dict[str, Any] | None = None) -> dict[str, dict[str, Any]]:
     if judgment and isinstance(judgment.get("paths"), dict):
         return normalize_action_paths(judgment.get("paths"))
+    if judgment and isinstance(judgment.get("tomorrow_paths"), list):
+        normalized = normalize_tomorrow_paths(judgment.get("tomorrow_paths"))
+        if normalized:
+            return normalized
     return index_action_paths(index)
 
 

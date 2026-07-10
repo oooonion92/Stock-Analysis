@@ -16,12 +16,23 @@ snapshots/
 # Daily replay crawler runtime state
 02_daily_replay/data/watch_targets.csv
 02_daily_replay/data/*.sqlite
+02_daily_replay/data/market_history_cache.json
 02_daily_replay/plans/watchlist_config.json
+02_daily_replay/plans/rollback_snapshots/
+02_daily_replay/plans/*_chanlun_dashboard.html
+02_daily_replay/plans/*_chanlun_replay_plan.json
+02_daily_replay/plans/*_chanlun_replay_plan.md
+02_daily_replay/plans/*_expert_digest.json
+02_daily_replay/plans/*_index_judgment.json
+02_daily_replay/plans/*_stock_judgments.json
 02_daily_replay/tools/forum_crawler/browser_profile/
 02_daily_replay/source_notes/crawled_forum_posts/
 02_daily_replay/data/*.sqlite-journal
 02_daily_replay/data/*.sqlite-wal
 02_daily_replay/data/*.sqlite-shm
+
+# Local scratch output
+.codex_tmp_reader/
 
 # Generated stock-analysis test output
 03_stock_deep_analysis/china-stock-deep-analysis-local/scripts/stock_work/test*/
