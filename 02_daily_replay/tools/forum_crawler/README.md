@@ -281,3 +281,26 @@ D:\OneDrive\Stock\Replies collect\高手发言阅读看板.html
 ```
 
 日常维护只改云端 `watch_targets.csv`。执行一键收集时，脚本会先把云端清单同步进本地 SQLite，再抓取并刷新三日汇总和阅读看板。完整历史只保存在 SQLite 中，避免 OneDrive 产生大量重复导出文件；SQLite 仍留在项目目录里，避免同步锁库。
+
+## 10. 引用与回复链
+
+新抓取记录会在原网页结构仍然可见时拆分引用和当前作者正文：
+
+```text
+content              当前跟踪对象自己的发言
+rawText              网页中的完整原始文本
+quote                直接引用对象；没有引用时为 null
+replyChain           按网页顺序保存的引用链
+quoteParseStatus     none / parsed / failed / legacy
+quoteParseError      解析失败原因
+```
+
+NGA 使用 `.quote` DOM 容器，雪球使用接口文本节点中的 `//` 回复链，虎扑使用 `.hasImgContent` 引用区域。找不到可靠边界时只标记 `failed`，不会按行数或语义猜测。历史记录保持 `legacy`，不会伪造拆分结果。
+
+Markdown 会把引用显示为明确的 `[!QUOTE]` 块，再单独显示当前作者回复。`experts-data.json` 直接从 SQLite 输出上述结构，Pages 无需重新解析 Markdown。
+
+回归测试：
+
+```powershell
+& $py .\02_daily_replay\tools\forum_crawler\test_reply_structure.py
+```

@@ -23,6 +23,11 @@ snapshots/
 02_daily_replay/data/*.sqlite-journal
 02_daily_replay/data/*.sqlite-wal
 02_daily_replay/data/*.sqlite-shm
+02_daily_replay/forum_reader/tool_logs/
+02_daily_replay/forum_reader/onedrive_cleanup_archive_*/
+02_daily_replay/forum_reader/*.html
+02_daily_replay/forum_reader/*.md
+02_daily_replay/forum_reader/review_evidence/
 
 # Generated stock-analysis test output
 03_stock_deep_analysis/china-stock-deep-analysis-local/scripts/stock_work/test*/

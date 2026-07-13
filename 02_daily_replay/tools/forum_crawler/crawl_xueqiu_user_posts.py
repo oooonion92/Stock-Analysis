@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from crawl_nga_author_replies import find_browser, strip_html
 from playwright.sync_api import Response, sync_playwright
+from reply_structure import apply_reply_structure, parse_xueqiu_content
 
 
 PROFILE_DIR = Path(__file__).resolve().parent / "browser_profile"
@@ -76,7 +77,8 @@ def normalize_status(item: dict[str, Any], user_id: str, author_name: str, sourc
     status_id = str(item.get("id") or item.get("id_str") or item.get("status_id") or "")
     raw_text = item.get("text") or item.get("description") or item.get("content") or ""
     title = strip_html(item.get("title") or "")
-    text = clean_xueqiu_text(raw_text)
+    structure = parse_xueqiu_content(str(raw_text))
+    text = structure["body"]
     if not status_id or (not text and not title):
         return None
 
@@ -85,7 +87,7 @@ def normalize_status(item: dict[str, Any], user_id: str, author_name: str, sourc
         return None
     author = str(user.get("screen_name") or user.get("name") or author_name or "雪球关注流")
     author_id = str(user.get("id") or user_id or "following")
-    return {
+    record = {
         "id": f"xueqiu:{status_id}",
         "site": "雪球",
         "author": author,
@@ -100,6 +102,7 @@ def normalize_status(item: dict[str, Any], user_id: str, author_name: str, sourc
         "crawl_time": now_iso(),
         "raw": item,
     }
+    return apply_reply_structure(record, structure)
 
 
 def walk_status_dicts(payload: Any) -> list[dict[str, Any]]:

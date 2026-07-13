@@ -762,7 +762,7 @@ def build_execution_state(df: pd.DataFrame, is_index: bool = False) -> dict[str,
     stats = day_stats(df, is_index=is_index)
     if is_index:
         return {
-            "cooling_protocol": "index_vwap_skipped",
+            "vwap_context": "index_vwap_skipped",
             "day": stats,
         }
     max_dev = stats.get("first30_vwap_max_dev_pct")
@@ -770,7 +770,6 @@ def build_execution_state(df: pd.DataFrame, is_index: bool = False) -> dict[str,
     induced_chase_risk = max_dev is not None and max_dev >= 1.5
     panic_flush = min_dev is not None and min_dev <= -1.5
     return {
-        "cooling_protocol": "09:30-10:00 no blind buy",
         "vwap": stats.get("vwap"),
         "vwap_source": stats.get("vwap_source"),
         "vwap_dev_pct": stats.get("vwap_dev_pct"),
@@ -1370,7 +1369,6 @@ def render_report(data: dict[str, Any]) -> str:
         for line in concise_action_card(report, index_gate=index_gate, position=positions.get(report["symbol"])):
             lines.append(line)
         lines.append("")
-    lines.append("盘中纪律：09:30-10:00 不追买；结构允许 + 回踩VWAP不破 + 大盘总闸不蓝，三者同时满足才进入执行观察。")
     lines.append("```")
     lines.append("")
 

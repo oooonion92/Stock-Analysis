@@ -1,23 +1,29 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import os
+import re
 import shutil
 import stat
 from datetime import datetime, time, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from zoneinfo import ZoneInfo
 
 from crawl_watchlist import crawl_target
 from export_posts import OUTPUT_ROOT, export_all_posts
-from forum_paths import CLOUD_REPORTS_ROOT, CLOUD_ROOT, CLOUD_WATCH_TARGETS
+from forum_paths import CLOUD_MARKDOWN_ROOT, CLOUD_REPORTS_ROOT, CLOUD_ROOT, CLOUD_WATCH_TARGETS
 from forum_db import connect, list_enabled_targets
 from import_watch_targets import import_csv
+from reply_structure import stored_reply_structure, structured_markdown_lines
 
 
 REPORT_DIR = CLOUD_REPORTS_ROOT
+EXPERTS_JSON_PATH = CLOUD_MARKDOWN_ROOT / "experts-data.json"
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
 
 LEGACY_CLOUD_EXPORTS = (
     CLOUD_ROOT / "今日汇总.md",
@@ -168,7 +174,7 @@ def write_report(summary: list[dict], exported_paths: list[Path]) -> Path:
 
 
 def write_export_index(exported_paths: list[Path]) -> Path:
-    index_path = CLOUD_ROOT / "_index.md"
+    index_path = CLOUD_MARKDOWN_ROOT / "_index.md"
     grouped: dict[str, list[Path]] = {}
     for path in exported_paths:
         if path.suffix.lower() != ".md":
@@ -246,6 +252,7 @@ def fetch_posts_for_summary(
             """
         )
     )
+    rows = [row for row in rows if str(row["content"] or "").strip()]
     if style:
         rows = [row for row in rows if row["style"] == style]
     if start_time is not None or end_time is not None:
@@ -315,32 +322,205 @@ def render_summary(title: str, rows) -> str:
                 )
                 if should_show_preview(content, preview):
                     lines.extend(["", f"**速览：** {preview}"])
-                lines.extend(
-                    [
-                        "",
-                        content,
-                        "",
-                        "---",
-                        "",
-                    ]
-                )
+                structure = stored_reply_structure(row["raw_json"], content)
+                lines.append("")
+                lines.extend(structured_markdown_lines(content, post_author_name(row), structure))
+                lines.extend(["", "---", ""])
                 index += 1
     return "\n".join(lines).strip() + "\n"
 
 
 def write_summary_files() -> list[Path]:
-    CLOUD_ROOT.mkdir(parents=True, exist_ok=True)
+    CLOUD_MARKDOWN_ROOT.mkdir(parents=True, exist_ok=True)
     paths: list[Path] = []
+    today_start = datetime.combine(datetime.now().date(), time.min)
+    today_end = datetime.combine(datetime.now().date(), time.max)
+    recent_seven_start = datetime.combine(datetime.now().date() - timedelta(days=6), time.min)
     with connect() as conn:
         specs = [
+            ("今日汇总.md", "今日高手发言汇总", None, today_start, today_end),
             ("最近3天汇总.md", "最近3天高手发言汇总", 3, None, None),
+            ("最近7天汇总.md", "最近7天高手发言汇总", None, recent_seven_start, today_end),
         ]
-        for filename, title, days, style, limit in specs:
-            path = CLOUD_ROOT / filename
-            rows = fetch_posts_for_summary(conn, days=days, style=style, limit=limit)
+        for filename, title, days, start_time, end_time in specs:
+            path = CLOUD_MARKDOWN_ROOT / filename
+            rows = fetch_posts_for_summary(
+                conn,
+                days=days,
+                start_time=start_time,
+                end_time=end_time,
+            )
             path.write_text(render_summary(title, rows), encoding="utf-8-sig")
             paths.append(path)
     return paths
+
+
+def parse_shanghai_time(value: str | None) -> datetime | None:
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        parsed = None
+    if parsed is None:
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+            try:
+                parsed = datetime.strptime(raw, fmt)
+                break
+            except ValueError:
+                continue
+    if parsed is None:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=SHANGHAI_TZ)
+    return parsed.astimezone(SHANGHAI_TZ)
+
+
+def normalize_body(value: str | None) -> str:
+    lines = [line.rstrip() for line in (value or "").replace("\r\n", "\n").replace("\r", "\n").split("\n")]
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    return "\n".join(lines)
+
+
+def stable_expert_id(row, source: str, author: str, published_at: datetime, body: str) -> str:
+    source_slug = {"NGA": "nga", "虎扑": "hupu", "雪球": "xueqiu"}.get(source)
+    if not source_slug:
+        source_slug = re.sub(r"[^a-z0-9]+", "-", source.lower()).strip("-") or "source"
+    external_post_id = str(row["external_post_id"] or "").strip()
+    if external_post_id:
+        return f"{source_slug}-{external_post_id}"
+    url = str(row["url"] or "").strip()
+    if url:
+        digest_input = url
+    else:
+        digest_input = f"{source}|{author}|{published_at.isoformat()}|{body}"
+    digest = hashlib.sha256(digest_input.encode("utf-8")).hexdigest()[:20]
+    return f"{source_slug}-{digest}"
+
+
+def validate_experts_payload(payload: dict) -> None:
+    records = payload.get("records")
+    if not isinstance(records, list) or payload.get("recordCount") != len(records):
+        raise ValueError("recordCount 与 records 数量不一致")
+    if not payload.get("updatedAt"):
+        raise ValueError("updatedAt 不能为空")
+    datetime.fromisoformat(str(payload["updatedAt"]))
+
+    seen: set[str] = set()
+    previous_key: tuple[str, str] | None = None
+    for index, record in enumerate(records, 1):
+        stable_id = str(record.get("id") or "")
+        if not stable_id or stable_id in seen:
+            raise ValueError(f"第 {index} 条记录 ID 为空或重复：{stable_id}")
+        seen.add(stable_id)
+        try:
+            datetime.strptime(str(record.get("date") or ""), "%Y-%m-%d")
+        except ValueError as exc:
+            raise ValueError(f"第 {index} 条记录日期无效") from exc
+        record_time = str(record.get("time") or "")
+        if record_time:
+            try:
+                datetime.strptime(record_time, "%H:%M")
+            except ValueError as exc:
+                raise ValueError(f"第 {index} 条记录时间无效") from exc
+        for field in ("source", "author", "body"):
+            if not str(record.get(field) or "").strip():
+                raise ValueError(f"第 {index} 条记录缺少 {field}")
+        url = str(record.get("url") or "")
+        if url and not re.match(r"^https?://", url, flags=re.IGNORECASE):
+            raise ValueError(f"第 {index} 条记录 URL 无效")
+        chain = record.get("replyChain") or []
+        if not isinstance(chain, list):
+            raise ValueError(f"第 {index} 条记录 replyChain 不是数组")
+        for quote_index, quote in enumerate(chain, 1):
+            if not isinstance(quote, dict) or not str(quote.get("body") or "").strip():
+                raise ValueError(f"第 {index} 条记录的第 {quote_index} 层引用无有效正文")
+        current_key = (record["date"], record_time)
+        if previous_key is not None and current_key > previous_key:
+            raise ValueError("records 未按日期时间倒序排列")
+        previous_key = current_key
+
+
+def write_experts_json(path: Path = EXPERTS_JSON_PATH) -> tuple[Path, int]:
+    now = datetime.now(SHANGHAI_TZ)
+    start_date = now.date() - timedelta(days=6)
+    start_time = datetime.combine(start_date, time.min, tzinfo=SHANGHAI_TZ)
+    end_time = datetime.combine(now.date(), time.max, tzinfo=SHANGHAI_TZ)
+
+    with connect() as conn:
+        rows = fetch_posts_for_summary(conn)
+
+    records: list[dict] = []
+    seen: set[str] = set()
+    for row in rows:
+        published_at = parse_shanghai_time(row["published_at"] or row["crawled_at"])
+        if published_at is None or published_at < start_time or published_at > end_time:
+            continue
+        source = str(row["site_name"] or "").strip()
+        author = post_author_name(row).strip()
+        structure = stored_reply_structure(row["raw_json"], row["content"])
+        body = normalize_body(structure["body"])
+        if not source or not author or not body:
+            continue
+        stable_id = stable_expert_id(row, source, author, published_at, body)
+        if stable_id in seen:
+            continue
+        seen.add(stable_id)
+        records.append(
+            {
+                "id": stable_id,
+                "date": published_at.strftime("%Y-%m-%d"),
+                "time": published_at.strftime("%H:%M"),
+                "source": source,
+                "author": author,
+                "category": str(row["style"] or ""),
+                "topic": clean_title(row["title"]),
+                "url": str(row["url"] or "").strip(),
+                "body": body,
+                "quote": structure["quote"],
+                "replyChain": structure["replyChain"],
+                "rawText": structure["rawText"],
+                "quoteParseStatus": structure["quoteParseStatus"],
+                "quoteParseError": structure["quoteParseError"],
+            }
+        )
+    records.sort(key=lambda item: (item["date"], item["time"], item["id"]), reverse=True)
+    if not records:
+        raise ValueError("最近 7 个自然日没有有效记录，保留上一版 experts-data.json")
+
+    generated_at = now.isoformat(timespec="seconds")
+    payload = {
+        "source": "collector database",
+        "updatedAt": generated_at,
+        "recordCount": len(records),
+        "records": records,
+        "schemaVersion": 1,
+        "generatedAt": generated_at,
+        "window": {
+            "timezone": "Asia/Shanghai",
+            "startDate": start_date.isoformat(),
+            "endDate": now.date().isoformat(),
+        },
+    }
+    validate_experts_payload(payload)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_name(f"{path.name}.tmp")
+    try:
+        temp_path.write_text(
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n",
+            encoding="utf-8",
+        )
+        json.loads(temp_path.read_text(encoding="utf-8"))
+        os.replace(temp_path, path)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+    return path, len(records)
 
 
 def write_reader_dashboard(
@@ -698,9 +878,9 @@ def fetch_weekend_posts() -> tuple[list, str]:
 
 
 def write_weekend_summary_file() -> tuple[Path, int, str]:
-    CLOUD_ROOT.mkdir(parents=True, exist_ok=True)
+    CLOUD_MARKDOWN_ROOT.mkdir(parents=True, exist_ok=True)
     rows, label = fetch_weekend_posts()
-    path = CLOUD_ROOT / "周末三日汇总.md"
+    path = CLOUD_MARKDOWN_ROOT / "周末三日汇总.md"
     path.write_text(render_summary(f"周末三日高手发言汇总（{label}）", rows), encoding="utf-8-sig")
     return path, len(rows), label
 
@@ -919,6 +1099,7 @@ def main() -> int:
 
     removed_legacy, cleanup_warnings = cleanup_legacy_cloud_exports()
     summary_paths = write_summary_files()
+    experts_json_path, experts_json_count = write_experts_json()
     dashboard_path = write_reader_dashboard()
     weekend_summary_path, weekend_summary_count, weekend_label = write_weekend_summary_file()
     weekend_dashboard_path, weekend_dashboard_count, _ = write_weekend_reader_dashboard()
@@ -928,7 +1109,9 @@ def main() -> int:
         print(f"已清理旧导出：{removed_legacy} 项")
     for warning in cleanup_warnings:
         print(f"[WARN] 旧导出暂未清理：{warning}")
-    print(f"三日滚动汇总：{summary_paths[0]}")
+    for summary_path in summary_paths:
+        print(f"Markdown 汇总：{summary_path}")
+    print(f"高手看板 JSON（最近 7 个自然日，{experts_json_count} 条）：{experts_json_path}")
     print(f"阅读看板：{dashboard_path}")
     print(f"周末三日汇总（{weekend_label}，{weekend_summary_count} 条）：{weekend_summary_path}")
     print(f"周末阅读看板（{weekend_dashboard_count} 条）：{weekend_dashboard_path}")

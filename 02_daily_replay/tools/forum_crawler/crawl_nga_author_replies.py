@@ -11,6 +11,12 @@ from urllib.parse import urlencode
 
 from bs4 import BeautifulSoup
 from playwright.sync_api import Page, sync_playwright
+from reply_structure import (
+    apply_reply_structure,
+    parse_nga_content,
+    stored_reply_structure,
+    structured_markdown_lines,
+)
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -178,7 +184,8 @@ def normalize_candidate(item: dict[str, Any], author_id: str, author_name: str, 
         or ""
     )
     title = item.get("subject") or item.get("title") or item.get("thread_subject") or ""
-    cleaned_content = strip_html(content)
+    structure = parse_nga_content(str(content))
+    cleaned_content = structure["body"]
     cleaned_title = strip_html(title)
 
     if not cleaned_content and not cleaned_title:
@@ -199,7 +206,7 @@ def normalize_candidate(item: dict[str, Any], author_id: str, author_name: str, 
     pid = str(item.get("pid") or item.get("post_id") or "")
     record_id = f"nga:{tid}:{pid}" if tid or pid else f"nga:{author_id}:page{page}:{hash(cleaned_content)}"
 
-    return {
+    record = {
         "id": record_id,
         "site": "NGA",
         "author": item_author_name or author_name,
@@ -214,6 +221,7 @@ def normalize_candidate(item: dict[str, Any], author_id: str, author_name: str, 
         "source_search_url": nga_search_url(author_id, page, output_json=False),
         "crawl_time": now_iso(),
     }
+    return apply_reply_structure(record, structure)
 
 
 def extract_records(payload: Any, author_id: str, author_name: str, page: int) -> list[dict[str, Any]]:
@@ -263,13 +271,13 @@ def extract_html_records(html: str, author_id: str, author_name: str, page: int)
             else:
                 created_at = timestamp
 
-        content = strip_html(content_node.decode_contents())
+        structure = parse_nga_content(content_node.decode_contents())
+        content = structure["body"]
         record_id = f"nga:{tid}:{pid}"
         if record_id in seen:
             continue
         seen.add(record_id)
-        records.append(
-            {
+        record = {
                 "id": record_id,
                 "site": "NGA",
                 "author": author,
@@ -285,7 +293,7 @@ def extract_html_records(html: str, author_id: str, author_name: str, page: int)
                 "source_search_url": nga_author_page_url(author_id, page),
                 "crawl_time": now_iso(),
             }
-        )
+        records.append(apply_reply_structure(record, structure))
 
     return records
 
@@ -300,6 +308,24 @@ def extract_detail_post_date(html: str, pid: str) -> str:
         return ""
     date_node = row.select_one("span[id^='postdate']")
     return strip_html(date_node.get_text("\n") if date_node else "")
+
+
+def extract_detail_post_structure_from_page(page_obj: Page, pid: str) -> dict[str, Any] | None:
+    anchor = page_obj.locator(f"#pid{pid}Anchor")
+    if anchor.count() == 0:
+        return None
+    raw_html = anchor.first.evaluate(
+        """
+        (element) => {
+            const row = element.closest('tr');
+            const content = row ? row.querySelector('p.postcontent') : null;
+            return content ? content.innerHTML : null;
+        }
+        """
+    )
+    if raw_html is None:
+        return None
+    return parse_nga_content(str(raw_html))
 
 
 def max_thread_page(html: str) -> int:
@@ -343,13 +369,15 @@ def extract_thread_author_records(
 
         date_node = row.select_one("span[id^='postdate']")
         published_at = strip_html(date_node.get_text("\n") if date_node else "")
-        content_node = row.select_one("span[id^='postcontent']")
-        content = strip_html(content_node.decode_contents() if content_node else row.decode_contents())
+        content_node = row.select_one("p.postcontent")
+        if content_node is None:
+            content_node = row.select_one("span[id^='postcontent']")
+        structure = parse_nga_content(content_node.decode_contents() if content_node else row.decode_contents())
+        content = structure["body"]
         if not content:
             continue
 
-        records.append(
-            {
+        record = {
                 "id": f"nga:{tid}:{pid}",
                 "site": "NGA",
                 "author": author or author_name,
@@ -364,7 +392,7 @@ def extract_thread_author_records(
                 "source_search_url": source_url,
                 "crawl_time": now_iso(),
             }
-        )
+        records.append(apply_reply_structure(record, structure))
     return records
 
 
@@ -448,6 +476,9 @@ def enrich_records_with_detail_dates(
         detail_date = extract_detail_post_date(html, pid)
         if detail_date:
             record["published_at"] = detail_date
+        structure = extract_detail_post_structure_from_page(page_obj, pid)
+        if structure is not None:
+            apply_reply_structure(record, structure)
 
 
 def load_html_with_retry(
@@ -505,6 +536,7 @@ def render_markdown(records: list[dict[str, Any]], author_name: str, author_id: 
         "",
     ]
     for index, record in enumerate(records, 1):
+        content = record.get("content", "").strip()
         lines.extend(
             [
                 f"## {index}. {record.get('title') or '(无标题)'}",
@@ -512,10 +544,11 @@ def render_markdown(records: list[dict[str, Any]], author_name: str, author_id: 
                 f"- 时间：{record.get('published_at') or '未知'}",
                 f"- 链接：{record.get('url') or record.get('source_search_url')}",
                 "",
-                record.get("content", "").strip(),
-                "",
             ]
         )
+        structure = stored_reply_structure(record, content)
+        lines.extend(structured_markdown_lines(content, str(record.get("author") or author_name), structure))
+        lines.append("")
     return "\n".join(lines).strip() + "\n"
 
 

@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$CollectorArgs = @()
 )
@@ -27,8 +27,10 @@ function Write-Section {
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Resolve-Path (Join-Path $ScriptDir "..\..\..")
 $Collector = Join-Path $ScriptDir "collect_forum_posts.py"
-$CloudRoot = "D:\OneDrive\Stock\Replies collect"
-$LogRoot = Join-Path $CloudRoot "tool_logs"
+$OutputRoot = "D:\Projects\Stock Analysis\02_daily_replay\forum_reader"
+$CloudRoot = $OutputRoot
+$LogRoot = Join-Path $OutputRoot "tool_logs"
+$WatchTargets = "D:\OneDrive\Stock\Replies collect\watch_targets.csv"
 
 if (-not (Test-Path -LiteralPath $Collector)) {
     throw "Cannot find collector script: $Collector"
@@ -112,7 +114,6 @@ if ($CollectorArgs.Count -gt 0) {
 
 $Stamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $LogPath = Join-Path $LogRoot "forum_collect_$Stamp.log"
-$WatchTargets = Join-Path $CloudRoot "watch_targets.csv"
 $TotalTargets = 0
 if (Test-Path -LiteralPath $WatchTargets) {
     try {

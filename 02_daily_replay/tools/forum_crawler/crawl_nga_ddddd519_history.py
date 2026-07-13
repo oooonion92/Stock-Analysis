@@ -26,17 +26,14 @@ from forum_db import connect, insert_posts, upsert_site, upsert_target
 
 
 ROOT = Path(__file__).resolve().parents[3]
-CLOUD_ROOT = Path(r"D:\OneDrive\Stock\Replies collect")
-FALLBACK_OUTPUT_DIR = ROOT / "02_daily_replay" / "source_notes" / "crawled_forum_posts" / "nga_history"
+OUTPUT_DIR = ROOT / "02_daily_replay" / "forum_reader" / "history_backfill"
 
 AUTHOR_ID = "25859713"
 AUTHOR_NAME = "ddddd519"
 
 
 def output_root() -> Path:
-    if CLOUD_ROOT.exists():
-        return CLOUD_ROOT / "history_backfill"
-    return FALLBACK_OUTPUT_DIR
+    return OUTPUT_DIR
 
 
 def parse_post_datetime(value: Any) -> datetime | None:

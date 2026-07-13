@@ -9,7 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 DB_PATH = ROOT / "02_daily_replay" / "data" / "forum_watchlist.sqlite"
-CLOUD_ROOT = Path(r"D:\OneDrive\Stock\Replies collect")
+LOCAL_OUTPUT_ROOT = ROOT / "02_daily_replay" / "forum_reader"
 
 
 def date_window(preset: str, start: str = "", end: str = "") -> tuple[str, str, str]:
@@ -96,7 +96,7 @@ def fetch_evidence(start_date: str, end_date: str) -> list[dict]:
 
 
 def write_outputs(records: list[dict], label: str, start_date: str, end_date: str) -> tuple[Path, Path]:
-    out_dir = CLOUD_ROOT / "review_evidence"
+    out_dir = LOCAL_OUTPUT_ROOT / "review_evidence"
     out_dir.mkdir(parents=True, exist_ok=True)
     json_path = out_dir / f"marked_evidence_{label}.json"
     md_path = out_dir / f"marked_evidence_{label}.md"

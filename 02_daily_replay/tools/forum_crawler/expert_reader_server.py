@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parents[3]
 DB_PATH = ROOT / "02_daily_replay" / "data" / "forum_watchlist.sqlite"
-CLOUD_ROOT = Path(r"D:\OneDrive\Stock\Replies collect")
+LOCAL_OUTPUT_ROOT = ROOT / "02_daily_replay" / "forum_reader"
 
 
 def parse_time(value: str | None) -> datetime | None:
@@ -202,15 +202,17 @@ def get_options() -> dict:
         latest = conn.execute(
             "SELECT MAX(COALESCE(NULLIF(published_at, ''), crawled_at)) AS latest FROM posts"
         ).fetchone()["latest"]
+        latest_date = str(latest or "")[:10] if latest else ""
         marked_count = marked_post_count(conn)
     return {
         "sites": sites,
         "styles": styles,
         "authors": authors,
         "latest": latest or "",
+        "latest_date": latest_date,
         "marked_count": marked_count,
         "db_path": str(DB_PATH),
-        "cloud_root": str(CLOUD_ROOT),
+        "output_root": str(LOCAL_OUTPUT_ROOT),
     }
 
 
@@ -437,11 +439,11 @@ async function loadOptions(){
 }
 function setDefaultDates(){
   if ($('start').value && $('end').value) return;
-  const end = new Date();
-  const start = new Date();
-  start.setDate(end.getDate() - 2);
-  $('start').value = start.toISOString().slice(0, 10);
-  $('end').value = end.toISOString().slice(0, 10);
+  const latest = (state.options.latest_date || '').slice(0, 10);
+  const fallback = new Date().toISOString().slice(0, 10);
+  const value = latest || fallback;
+  $('start').value = value;
+  $('end').value = value;
 }
 function params(){
   const p = new URLSearchParams();
