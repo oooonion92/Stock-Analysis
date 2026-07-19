@@ -112,6 +112,31 @@ function ComparisonTable({ reference, test, ratios }: {
   );
 }
 
+function ThirdPointEvidence({ structure, center }: {
+  structure?: Record<string, any> | null;
+  center?: Record<string, any> | null;
+}) {
+  if (!structure || !center) return <p className="empty">当前三类点没有可追溯的所属中枢。</p>;
+  const departure = structure.departure || {};
+  const retrace = structure.retrace || {};
+  return (
+    <>
+      <p className="evidence-basis">{structure.rule}</p>
+      <EvidenceRows rows={[
+        ["中枢区间", `${fmt(center.start_at)} 至 ${fmt(center.end_at)}`],
+        ["中枢下沿 ZD", center.zd],
+        ["中枢上沿 ZG", center.zg],
+        ["离开笔", `${fmt(departure.startTime)} ${fmt(departure.startValue)} → ${fmt(departure.endTime)} ${fmt(departure.endValue)}`],
+        ["回踩 / 反抽笔", `${fmt(retrace.startTime)} ${fmt(retrace.startValue)} → ${fmt(retrace.endTime)} ${fmt(retrace.endValue)}`],
+        ["检查边界", `${structure.center_boundary_name} ${fmt(structure.center_boundary)}`],
+        ["回踩低点 / 反抽高点", structure.retrace_extreme],
+        ["边界余量", structure.clearance],
+        ["是否守住中枢", structure.holds_center],
+      ]} />
+    </>
+  );
+}
+
 export default function EvidencePanel({
   data,
   activeLevel,
@@ -131,6 +156,7 @@ export default function EvidencePanel({
   const evidence = (signal?.evidence || {}) as Record<string, any>;
   const audit = (evidence.divergence_audit || {}) as Record<string, any>;
   const ratios = (evidence.ratios || {}) as Record<string, any>;
+  const isThirdPoint = evidence.comparison_kind === "center_non_return";
   const crossLevel = selectedCrossLevel || data.cross_level.active[data.cross_level.active.length - 1] || data.cross_level.events[data.cross_level.events.length - 1] || null;
   const crossEvidence = (crossLevel?.evidence || {}) as Record<string, any>;
 
@@ -258,14 +284,20 @@ export default function EvidencePanel({
                 <section>
                   <h3>判定依据</h3>
                   <p className="evidence-basis">{evidence.basis || "由 chan.py 原生结构生成。"}</p>
-                  <EvidenceRows rows={[
-                    ["复核结论", audit.status],
-                    ["价格创新值", audit.price_extension],
-                    ["动力减弱票数", audit.momentum_votes],
-                    ["所需票数", audit.required_votes],
-                    ["减弱阈值", audit.weakening_ratio],
-                    ["结论", audit.conclusion],
-                  ]} />
+                  {isThirdPoint
+                    ? <EvidenceRows rows={[
+                        ["判定方式", "离开中枢后的首次回踩 / 反抽"],
+                        ["结构结论", evidence.third_structure?.holds_center ? "未返回中枢" : "已返回中枢"],
+                        ["动力复核", "三类点不以背驰作为直接成立条件"],
+                      ]} />
+                    : <EvidenceRows rows={[
+                        ["复核结论", audit.status],
+                        ["价格创新值", audit.price_extension],
+                        ["动力减弱票数", audit.momentum_votes],
+                        ["所需票数", audit.required_votes],
+                        ["减弱阈值", audit.weakening_ratio],
+                        ["结论", audit.conclusion],
+                      ]} />}
                 </section>
 
                 {evidence.dependency?.required && (
@@ -282,8 +314,10 @@ export default function EvidencePanel({
                 )}
 
                 <section>
-                  <h3>背驰区间对比</h3>
-                  <ComparisonTable reference={evidence.reference} test={evidence.test} ratios={ratios} />
+                  <h3>{isThirdPoint ? "三类点结构验证" : "背驰区间对比"}</h3>
+                  {isThirdPoint
+                    ? <ThirdPointEvidence structure={evidence.third_structure} center={evidence.center} />
+                    : <ComparisonTable reference={evidence.reference} test={evidence.test} ratios={ratios} />}
                 </section>
 
                 <section>

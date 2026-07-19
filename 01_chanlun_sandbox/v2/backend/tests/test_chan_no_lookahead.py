@@ -187,6 +187,38 @@ def test_segment_bs_points_remain_separate_from_actual_parent_level(client: Test
     assert {item["id"] for item in segment_points}.isdisjoint(item["id"] for item in parent_points)
 
 
+def test_third_buy_exposes_center_departure_and_retrace_evidence(client: TestClient) -> None:
+    payload = client.post(
+        "/api/v2/analyze",
+        json={"symbol": "sz002384", "display_level": "30m", "include_invalidated": True},
+    ).json()
+    third_buy = next(
+        item for item in signal_history(payload, "decision")
+        if item["label"] == "3B"
+        and item["lifecycle"]["event_at"] == "2026-04-20T14:00:00"
+    )
+    evidence = third_buy["evidence"]
+    structure = evidence["third_structure"]
+
+    assert third_buy["lifecycle"]["confirmed_at"] == "2026-04-20T14:30:00"
+    assert evidence["comparison_kind"] == "center_non_return"
+    assert evidence["ratios"] == {}
+    assert evidence["center"]["start_at"] == "2026-03-18T14:00:00"
+    assert evidence["center"]["end_at"] == "2026-03-25T10:00:00"
+    assert evidence["center"]["zg"] == 115.01
+    assert evidence["reference"]["startTime"] == "2026-04-02T14:30:00"
+    assert evidence["reference"]["endTime"] == "2026-04-20T10:00:00"
+    assert evidence["reference"]["startValue"] == 104.8
+    assert evidence["reference"]["endValue"] == 168.2
+    assert structure["departure"] == evidence["reference"]
+    assert structure["retrace"] == evidence["test"]
+    assert structure["center_boundary_name"] == "ZG"
+    assert structure["center_boundary"] == 115.01
+    assert structure["retrace_extreme"] == 155.7
+    assert structure["holds_center"] is True
+    assert round(structure["clearance"], 2) == 40.69
+
+
 def test_as_of_analysis_matches_physically_truncated_csv(client: TestClient, tmp_path: Path) -> None:
     cutoff = pd.Timestamp("2026-05-20 13:45:00")
     full = client.post(

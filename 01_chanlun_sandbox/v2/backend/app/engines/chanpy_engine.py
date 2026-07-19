@@ -578,8 +578,8 @@ class ChanPyEngine:
             basis = "二类点检查一类点后的回撤或反抽是否守住结构保护价；正式确认还要求关联一类点通过严格复核。"
         elif primary in {"3a", "3b"}:
             center = self._third_center(primary, line, point, parent_segments)
-            if center is not None:
-                reference_line = center.bi_out or center.get_bi_in()
+            if line.idx > 0 and line.idx - 1 < len(line_list):
+                reference_line = line_list[line.idx - 1]
             comparison_kind = "center_non_return"
             basis = "三类点检查离开中枢后的首次回踩或反抽是否回到中枢。"
         if center is None:
@@ -589,6 +589,28 @@ class ChanPyEngine:
 
         test = self._line_metrics(line, data, "检验段")
         reference = self._line_metrics(reference_line, data, "对照段") if reference_line is not None else None
+        third_structure = None
+        if primary in {"3a", "3b"} and center is not None:
+            buy = bool(point.is_buy)
+            boundary = float(center.high if buy else center.low)
+            retrace_extreme = float(line.get_end_val())
+            clearance = retrace_extreme - boundary if buy else boundary - retrace_extreme
+            third_structure = {
+                "side": "buy" if buy else "sell",
+                "center_boundary_name": "ZG" if buy else "ZD",
+                "center_boundary": boundary,
+                "departure": reference,
+                "retrace": test,
+                "retrace_extreme": retrace_extreme,
+                "holds_center": clearance >= 0,
+                "clearance": clearance,
+                "clearance_ratio": _ratio(clearance, abs(boundary)),
+                "rule": (
+                    "向上离开中枢后，首次回踩低点不低于中枢上沿 ZG。"
+                    if buy else
+                    "向下离开中枢后，首次反抽高点不高于中枢下沿 ZD。"
+                ),
+            }
         ratios: dict[str, float | None] = {}
         audit = {
             "status": "not_applicable",
@@ -603,7 +625,7 @@ class ChanPyEngine:
             "volume_contracting": None,
             "conclusion": "该类型不以背驰作为直接成立条件。",
         }
-        if reference is not None:
+        if reference is not None and comparison_kind != "center_non_return":
             ratios = {
                 "price_move": _ratio(test["priceMove"], reference["priceMove"]),
                 "macd_area": _ratio(test["macdArea"], reference["macdArea"]),
@@ -663,6 +685,7 @@ class ChanPyEngine:
             "basis": basis,
             "reference": reference,
             "test": test,
+            "third_structure": third_structure,
             "ratios": ratios,
             "divergence_audit": audit,
             "center": self._center_record(center, data, "native", "stroke") if center is not None else None,

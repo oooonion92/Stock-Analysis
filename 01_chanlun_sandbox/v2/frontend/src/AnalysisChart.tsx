@@ -173,6 +173,17 @@ export default function AnalysisChart({
     const selectedEvidence = (selectedSignal?.evidence || {}) as Record<string, any>;
     const selectedReference = selectedEvidence.reference as Record<string, any> | undefined;
     const selectedTest = selectedEvidence.test as Record<string, any> | undefined;
+    const selectedCenter = selectedEvidence.center as ChanCenter | undefined;
+    const selectedCenterArea = selectedSignal && selectedCenter ? [[
+      {
+        name: "所属中枢",
+        xAxis: nearest(selectedCenter.start_at),
+        yAxis: selectedCenter.zd,
+        itemStyle: { color: "rgba(31,157,114,.12)", borderColor: "#1f9d72", borderWidth: 2 },
+        label: { show: true, color: "#177759", fontSize: 10, formatter: "所属中枢" },
+      },
+      { xAxis: nearest(selectedCenter.end_at), yAxis: selectedCenter.zg },
+    ]] : [];
     const comparisonAreas = selectedSignal ? [
       ...(selectedReference ? [[
         { xAxis: nearest(selectedReference.startTime), itemStyle: { color: "rgba(47,127,193,.10)" } },
@@ -200,6 +211,7 @@ export default function AnalysisChart({
       ...(layers.higherCenters && levelVisibility["1d"]
         ? centerAreas(higher.centers, nearest, layers.centerHistory, 2, "rgba(126,82,153,.08)", "rgba(126,82,153,.62)")
         : []),
+      ...selectedCenterArea,
       ...comparisonAreas,
     ];
 
