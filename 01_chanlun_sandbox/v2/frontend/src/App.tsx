@@ -270,7 +270,7 @@ export default function App() {
 
         <main className="chart-stage">
           {error && <div className="error-banner">{error}<button onClick={() => setError("")}>×</button></div>}
-          {analysis ? <AnalysisChart data={analysis} layers={layers} levelVisibility={levelVisibility} signalAuditMode={signalAuditMode} selectedSignal={selectedSignal} onSignalSelect={setSelectedSignal} /> : <div className="loading-state">加载行情…</div>}
+          {analysis ? <AnalysisChart data={analysis} layers={layers} levelVisibility={levelVisibility} signalAuditMode={signalAuditMode} includeInvalidated={includeInvalidated} selectedSignal={selectedSignal} onSignalSelect={setSelectedSignal} /> : <div className="loading-state">加载行情…</div>}
           {loading && <div className="busy-line" />}
         </main>
 

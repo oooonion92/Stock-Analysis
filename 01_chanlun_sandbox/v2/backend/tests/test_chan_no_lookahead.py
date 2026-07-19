@@ -36,14 +36,14 @@ def test_sh000001_full_history_matches_chanpy_golden_structure(client: TestClien
         "higher_segments": 8,
         "centers": 30,
         "segment_centers": 6,
-        "signals": 41,
+        "signals": 5,
         "signal_history": 72,
         "strict_first_signals": 13,
     }
     assert decision["summary"]["strokes"] == 140
     assert decision["summary"]["segments"] == 23
     assert decision["summary"]["centers"] == 16
-    assert decision["summary"]["signals"] == 22
+    assert decision["summary"]["signals"] == 8
     assert decision["summary"]["signal_history"] == 39
     assert decision["summary"]["strict_first_signals"] == 6
 
@@ -113,6 +113,61 @@ def test_second_buy_inherits_unconfirmed_first_buy_state(client: TestClient) -> 
     assert second_buy["evidence"]["dependency"]["parent_signal_id"] == first_buy["id"]
     assert second_buy["evidence"]["dependency"]["status"] == "pending"
     assert second_buy["id"] not in {item["id"] for item in payload["chan"]["execution"]["signals"]}
+
+
+def test_confirmed_buy_chains_retire_after_visible_guard_break(client: TestClient) -> None:
+    payload = client.post(
+        "/api/v2/analyze",
+        json={"symbol": "sh000001", "include_invalidated": True},
+    ).json()
+    history = signal_history(payload)
+    cases = {
+        "2026-05-28T13:15:00": "2026-06-01T11:10:00",
+        "2026-05-28T14:15:00": "2026-06-01T11:10:00",
+        "2026-06-02T10:10:00": "2026-06-05T14:25:00",
+        "2026-06-03T09:35:00": "2026-06-05T14:25:00",
+    }
+    retired = {
+        item["lifecycle"]["event_at"]: item
+        for item in history
+        if item["lifecycle"]["event_at"] in cases
+    }
+    assert retired.keys() == cases.keys()
+    for event_at, invalidated_at in cases.items():
+        signal = retired[event_at]
+        assert signal["lifecycle"]["state"] == "invalidated"
+        assert signal["lifecycle"]["confirmed_at"] is not None
+        assert signal["lifecycle"]["invalidated_at"] == invalidated_at
+        assert signal["id"] not in {item["id"] for item in payload["chan"]["execution"]["signals"]}
+
+    first_buy = retired["2026-06-02T10:10:00"]
+    second_buy = retired["2026-06-03T09:35:00"]
+    assert second_buy["risk_guard"] == first_buy["risk_guard"]
+    assert second_buy["evidence"]["dependency"]["parent_state"] == "invalidated"
+
+
+def test_buy_chain_is_still_confirmed_before_future_guard_break(client: TestClient) -> None:
+    payload = client.post(
+        "/api/v2/analyze",
+        json={
+            "symbol": "sh000001",
+            "as_of": "2026-06-03T15:00:00",
+            "include_invalidated": True,
+        },
+    ).json()
+    history = signal_history(payload)
+    first_buy = next(
+        item for item in history
+        if item["lifecycle"]["event_at"] == "2026-06-02T10:10:00"
+    )
+    second_buy = next(
+        item for item in history
+        if item["lifecycle"]["event_at"] == "2026-06-03T09:35:00"
+    )
+    assert first_buy["lifecycle"]["state"] == "confirmed"
+    assert second_buy["lifecycle"]["state"] == "confirmed"
+    assert first_buy["lifecycle"]["invalidated_at"] is None
+    assert second_buy["lifecycle"]["invalidated_at"] is None
 
 
 def test_segment_bs_points_remain_separate_from_actual_parent_level(client: TestClient) -> None:

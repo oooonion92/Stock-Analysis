@@ -57,7 +57,7 @@ class AppConfig:
     default_profile: str = "balanced"
     default_benchmark: str = "sh000001"
     schema_version: str = "2.0"
-    model_version: str = "chan-logic-v1.0.0"
+    model_version: str = "chan-logic-v1.0.1"
     visible_trading_days: int = 30
 
     @property

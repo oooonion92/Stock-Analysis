@@ -3,13 +3,13 @@
 ## 版本身份
 
 - 冻结日期：2026-07-19
-- 模型版本：`chan-logic-v1.0.0`
-- 回滚标签：`chanlun-sandbox-logic-v1.0.0`
+- 模型版本：`chan-logic-v1.0.1`
+- 回滚标签：`chanlun-sandbox-logic-v1.0.1`
 - 部署目录：`01_chanlun_sandbox/v2`
 - 服务地址：`http://127.0.0.1:8766/`
 - 上游结构底座：`chan.py@429d6ed3043e27c93a003ba2b10e70a05575e1f5`
 
-部署代号 V2 与逻辑版本 V1 是两个维度：目录和端口用于隔离旧沙盘，逻辑版本用于管理此后算法变化。
+部署代号 V2 与逻辑版本 V1 是两个维度：目录和端口用于隔离旧沙盘，逻辑版本用于管理此后算法变化。原 `chanlun-sandbox-logic-v1.0.0` 标签继续保留，用于核对首次冻结版本。
 
 ## 冻结范围
 
@@ -29,14 +29,14 @@
 
 - 修复不改变口径的缺陷时递增补丁号，例如 `1.0.1`。
 - 改变 BS 判定、中枢构造、级别映射或确认时点时递增次版本，并补充黄金样本与前缀一致性测试。
-- 不修改、重打或删除 `chanlun-sandbox-logic-v1.0.0` 标签。
+- 不修改、重打或删除 `chanlun-sandbox-logic-v1.0.0` 与 `chanlun-sandbox-logic-v1.0.1` 标签。
 - 新逻辑验收前保留 V1 标签作为并排输出和截图复核基准。
 - 回滚核对优先新建独立 worktree，避免覆盖当前工作目录。
 
 示例：
 
 ```powershell
-git worktree add '..\Stock Analysis-chan-v1' chanlun-sandbox-logic-v1.0.0
+git worktree add '..\Stock Analysis-chan-v1.01' chanlun-sandbox-logic-v1.0.1
 ```
 
 ## 最低验收

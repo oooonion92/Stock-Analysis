@@ -353,6 +353,7 @@ class ChanPyEngine:
             )
             history.append(signal)
         self._apply_signal_dependencies(history)
+        self._apply_signal_lifecycle(history, data)
         active = [signal for signal in history if signal["lifecycle"]["state"] == "confirmed"]
         return active, history
 
@@ -415,6 +416,74 @@ class ChanPyEngine:
                     "invalidated_at": None,
                 })
             signal["confidence"] = 0.45
+
+    @staticmethod
+    def _apply_signal_lifecycle(history: list[dict[str, Any]], data: pd.DataFrame) -> None:
+        """Retire confirmed signals only after a visible close breaks their risk guard."""
+        by_line_index = {
+            signal["evidence"]["line_index"]: signal
+            for signal in history
+        }
+
+        # A second-class point belongs to its first-class chain and therefore
+        # uses the parent's extreme as the chain-level invalidation boundary.
+        for signal in history:
+            dependency = signal["evidence"].get("dependency")
+            if not dependency or not dependency.get("required"):
+                continue
+            parent = by_line_index.get(dependency.get("parent_line_index"))
+            if parent is not None:
+                signal["risk_guard"] = float(parent["risk_guard"])
+
+        times = pd.to_datetime(data["time"])
+        for signal in history:
+            lifecycle = signal["lifecycle"]
+            if lifecycle["state"] != "confirmed":
+                continue
+            guard = float(signal["risk_guard"])
+            detected_at = pd.Timestamp(lifecycle["detected_at"])
+            future = data.loc[times > detected_at]
+            if signal["side"] == "buy":
+                breaches = future.loc[future["close"] < guard]
+                rule = "收盘价有效跌破信号链风险线"
+            else:
+                breaches = future.loc[future["close"] > guard]
+                rule = "收盘价有效升破信号链风险线"
+            invalidated_at = None if breaches.empty else _iso(breaches.iloc[0]["time"])
+            signal["evidence"]["lifecycle_audit"] = {
+                "risk_guard": guard,
+                "rule": rule,
+                "invalidated_at": invalidated_at,
+            }
+            if invalidated_at is None:
+                continue
+            lifecycle.update({
+                "state": "invalidated",
+                "invalidated_at": invalidated_at,
+            })
+
+        # Refresh dependency evidence after later bars have retired a parent.
+        for signal in history:
+            dependency = signal["evidence"].get("dependency")
+            if not dependency or not dependency.get("required"):
+                continue
+            parent = by_line_index.get(dependency.get("parent_line_index"))
+            if parent is None:
+                continue
+            parent_state = parent["lifecycle"]["state"]
+            dependency["parent_state"] = parent_state
+            if parent_state != "invalidated":
+                continue
+            dependency.update({
+                "status": "invalidated",
+                "status_label": "关联一类点已失效",
+                "conclusion": "关联一类点后来跌破或升破风险线，依赖它的二类点已退出当前有效信号。",
+            })
+            if signal["lifecycle"]["state"] == "confirmed":
+                signal["lifecycle"].update({
+                    "state": "invalidated",
+                    "invalidated_at": parent["lifecycle"]["invalidated_at"],
+                })
 
     def _signal_record(
         self,

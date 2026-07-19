@@ -40,6 +40,7 @@ interface Props {
   levelVisibility: Record<string, boolean>;
   onSignalSelect?: (signal: ChanSignal) => void;
   signalAuditMode?: "confirmed" | "all" | "questionable";
+  includeInvalidated?: boolean;
   selectedSignal?: ChanSignal | null;
 }
 
@@ -112,6 +113,7 @@ export default function AnalysisChart({
   levelVisibility,
   onSignalSelect,
   signalAuditMode = "confirmed",
+  includeInvalidated = false,
   selectedSignal = null,
 }: Props) {
   const elementRef = useRef<HTMLDivElement>(null);
@@ -222,6 +224,7 @@ export default function AnalysisChart({
       ...(levelVisibility["30m"] ? decision.signal_history : []),
       ...(levelVisibility["1d"] ? higher.signal_history : []),
     ].filter((signal) => {
+      if (signal.lifecycle.state === "invalidated") return includeInvalidated;
       if (!signalAuditVisible(signal, signalAuditMode)) return false;
       const eventAt = signal.lifecycle.event_at;
       if (eventAt < times[0] || eventAt > times[lastIndex]) return false;
@@ -407,7 +410,7 @@ export default function AnalysisChart({
         layers.macd && { name: "DEA", type: "line", xAxisIndex: 2, yAxisIndex: 2, data: macd.dea, showSymbol: false, lineStyle: { width: 1, color: "#e08b35" } },
       ].filter(Boolean),
     }, true);
-  }, [data, layers, levelVisibility, signalAuditMode, selectedSignal, zoomWindow]);
+  }, [data, layers, levelVisibility, signalAuditMode, includeInvalidated, selectedSignal, zoomWindow]);
 
   return <div ref={elementRef} className="analysis-chart" aria-label="缠论多层级行情图" />;
 }
