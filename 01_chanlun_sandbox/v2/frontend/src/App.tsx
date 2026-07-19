@@ -3,7 +3,7 @@ import { ArrowUpDown, CalendarDays, Download, Layers3, RefreshCw, Save } from "l
 import AnalysisChart from "./AnalysisChart";
 import EvidencePanel from "./EvidencePanel";
 import { api } from "./api";
-import type { AnalysisResponse, AnalyzePayload, ChanSignal, StockInfo } from "./types";
+import type { AnalysisResponse, AnalyzePayload, ChanSignal, CrossLevelEvent, StockInfo } from "./types";
 
 function defaultLayers(level: "5m" | "30m") {
   const fiveMinute = level === "5m";
@@ -21,6 +21,7 @@ function defaultLayers(level: "5m" | "30m") {
     higherCenters: !fiveMinute,
     signals: true,
     segmentSignals: false,
+    crossLevel: true,
     macd: true,
     centerHistory: false,
   };
@@ -43,6 +44,7 @@ export default function App() {
   const [layersOpen, setLayersOpen] = useState(true);
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
   const [selectedSignal, setSelectedSignal] = useState<ChanSignal | null>(null);
+  const [selectedCrossLevel, setSelectedCrossLevel] = useState<CrossLevelEvent | null>(null);
   const [signalAuditMode, setSignalAuditMode] = useState<"confirmed" | "all" | "questionable">("confirmed");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("正在连接沙盘");
@@ -73,6 +75,7 @@ export default function App() {
       const result = await api.analyze(request);
       setAnalysis(result);
       setSelectedSignal(null);
+      setSelectedCrossLevel(null);
       if (!endDate) setEndDate(inputDate(result.visible_bar_end));
       setMessage(`更新至 ${result.visible_bar_end.replace("T", " ").slice(0, 16)}`);
     } catch (reason) {
@@ -240,6 +243,7 @@ export default function App() {
                 <div className="layer-option-grid">
                   <label className="check-row"><input type="checkbox" checked={layers.signals} onChange={(event) => toggleLayer("signals", event.target.checked)} /><span>笔买卖点</span></label>
                   <label className="check-row"><input type="checkbox" checked={layers.segmentSignals} onChange={(event) => toggleLayer("segmentSignals", event.target.checked)} /><span>段买卖点</span></label>
+                  <label className="check-row"><input type="checkbox" checked={layers.crossLevel} onChange={(event) => toggleLayer("crossLevel", event.target.checked)} /><span>5m→30m转折</span></label>
                   <label className="check-row"><input type="checkbox" checked={includeInvalidated} onChange={(event) => setIncludeInvalidated(event.target.checked)} /><span>失效历史</span></label>
                 </div>
                 <label className="signal-audit-control">
@@ -270,11 +274,11 @@ export default function App() {
 
         <main className="chart-stage">
           {error && <div className="error-banner">{error}<button onClick={() => setError("")}>×</button></div>}
-          {analysis ? <AnalysisChart data={analysis} layers={layers} levelVisibility={levelVisibility} signalAuditMode={signalAuditMode} includeInvalidated={includeInvalidated} selectedSignal={selectedSignal} onSignalSelect={setSelectedSignal} /> : <div className="loading-state">加载行情…</div>}
+          {analysis ? <AnalysisChart data={analysis} layers={layers} levelVisibility={levelVisibility} signalAuditMode={signalAuditMode} includeInvalidated={includeInvalidated} selectedSignal={selectedSignal} selectedCrossLevel={selectedCrossLevel} onSignalSelect={(signal) => { setSelectedSignal(signal); setSelectedCrossLevel(null); }} onCrossLevelSelect={(event) => { setSelectedCrossLevel(event); setSelectedSignal(null); }} /> : <div className="loading-state">加载行情…</div>}
           {loading && <div className="busy-line" />}
         </main>
 
-        {analysis && <EvidencePanel data={analysis} activeLevel={viewLevel} selectedSignal={selectedSignal} />}
+        {analysis && <EvidencePanel data={analysis} activeLevel={viewLevel} selectedSignal={selectedSignal} selectedCrossLevel={selectedCrossLevel} />}
       </div>
     </div>
   );

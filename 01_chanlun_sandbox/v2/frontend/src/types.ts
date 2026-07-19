@@ -48,6 +48,29 @@ export interface ChanSignal {
   evidence: Record<string, unknown>;
 }
 
+export interface CrossLevelEvent {
+  id: string;
+  source_level: "5m";
+  target_level: "30m";
+  direction: "up" | "down";
+  label: string;
+  source_signal_id: string;
+  source_signal_label: string;
+  source_price: number;
+  break_boundary: number;
+  risk_guard: number;
+  lifecycle: {
+    state: "candidate" | "triggered" | "confirmed" | "invalidated" | "expired";
+    event_at: string;
+    detected_at: string;
+    triggered_at?: string | null;
+    confirmed_at?: string | null;
+    invalidated_at?: string | null;
+    expired_at?: string | null;
+  };
+  evidence: Record<string, any>;
+}
+
 export interface ChanLine {
   id: string;
   level: string;
@@ -195,6 +218,14 @@ export interface AnalysisResponse {
     execution: ChanLayer;
     decision: ChanLayer;
     higher: ChanLayer;
+  };
+  cross_level: {
+    version: string;
+    source_level: "5m";
+    target_level: "30m";
+    events: CrossLevelEvent[];
+    active: CrossLevelEvent[];
+    summary: Record<string, number>;
   };
   wyckoff: Record<string, any>;
   wave: Record<string, any>;

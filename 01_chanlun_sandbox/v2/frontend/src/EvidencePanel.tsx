@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import type { AnalysisResponse, ChanSignal } from "./types";
+import type { AnalysisResponse, ChanSignal, CrossLevelEvent } from "./types";
 
-type Tab = "structure" | "signal";
+type Tab = "structure" | "signal" | "crossLevel";
 
 const stateLabels: Record<string, string> = {
   insufficient_structure: "结构不足",
@@ -16,6 +16,7 @@ const stateLabels: Record<string, string> = {
   active: "发展中",
   completed: "已完成",
   candidate: "候选",
+  triggered: "已触发",
   confirmed: "已确认",
   invalidated: "已失效",
   expired: "已过期",
@@ -115,10 +116,12 @@ export default function EvidencePanel({
   data,
   activeLevel,
   selectedSignal,
+  selectedCrossLevel,
 }: {
   data: AnalysisResponse;
   activeLevel: "5m" | "30m";
   selectedSignal?: ChanSignal | null;
+  selectedCrossLevel?: CrossLevelEvent | null;
 }) {
   const [tab, setTab] = useState<Tab>("structure");
   const active = activeLevel === "5m" ? data.chan.execution : data.chan.decision;
@@ -128,10 +131,16 @@ export default function EvidencePanel({
   const evidence = (signal?.evidence || {}) as Record<string, any>;
   const audit = (evidence.divergence_audit || {}) as Record<string, any>;
   const ratios = (evidence.ratios || {}) as Record<string, any>;
+  const crossLevel = selectedCrossLevel || data.cross_level.active[data.cross_level.active.length - 1] || data.cross_level.events[data.cross_level.events.length - 1] || null;
+  const crossEvidence = (crossLevel?.evidence || {}) as Record<string, any>;
 
   useEffect(() => {
     if (selectedSignal) setTab("signal");
   }, [selectedSignal?.id]);
+
+  useEffect(() => {
+    if (selectedCrossLevel) setTab("crossLevel");
+  }, [selectedCrossLevel?.id]);
 
   const recentSignals = useMemo(
     () => active.signals.slice(-8).reverse(),
@@ -142,6 +151,7 @@ export default function EvidencePanel({
       <div className="evidence-tabs" role="tablist">
         <button className={tab === "structure" ? "active" : ""} onClick={() => setTab("structure")}>结构</button>
         <button className={tab === "signal" ? "active" : ""} onClick={() => setTab("signal")}>BS点</button>
+        <button className={tab === "crossLevel" ? "active" : ""} onClick={() => setTab("crossLevel")}>小转大</button>
       </div>
 
       <div className="evidence-content">
@@ -286,6 +296,58 @@ export default function EvidencePanel({
                       </div>
                     ))}
                   </div>
+                </section>
+              </>
+            )}
+          </>
+        )}
+
+        {tab === "crossLevel" && (
+          <>
+            {!crossLevel && <p className="empty">当前历史中没有满足来源条件的5m→30m转折事件。</p>}
+            {crossLevel && (
+              <>
+                <section>
+                  <div className="section-title-line">
+                    <h3>{crossLevel.label}</h3>
+                    <span className={`state-tag ${crossLevel.lifecycle.state}`}>{fmt(crossLevel.lifecycle.state)}</span>
+                  </div>
+                  <EvidenceRows rows={[
+                    ["来源信号", crossLevel.source_signal_label],
+                    ["结构发生", crossLevel.lifecycle.event_at],
+                    ["来源确认", crossLevel.lifecycle.detected_at],
+                    ["5m突破触发", crossLevel.lifecycle.triggered_at],
+                    ["30m收盘确认", crossLevel.lifecycle.confirmed_at],
+                    ["失效时间", crossLevel.lifecycle.invalidated_at],
+                    ["来源价格", crossLevel.source_price],
+                    ["突破边界", crossLevel.break_boundary],
+                    ["风险线", crossLevel.risk_guard],
+                  ]} />
+                </section>
+
+                <section>
+                  <h3>确认链</h3>
+                  <p className="evidence-basis">{crossEvidence.rule}</p>
+                  <EvidenceRows rows={[
+                    ["边界类型", "已确认5m线段端点"],
+                    ["边界形成", crossEvidence.break_boundary_pivot?.event_at],
+                    ["边界确认", crossEvidence.break_boundary_pivot?.confirmed_at],
+                    ["30m背景方向", crossEvidence.decision_context?.direction],
+                    ["30m背景起点", crossEvidence.decision_context?.start_at],
+                    ["30m背景终点", crossEvidence.decision_context?.end_at],
+                    ["30m背景确认", crossEvidence.decision_context_confirmed_at],
+                  ]} />
+                </section>
+
+                <section>
+                  <h3>触发证据</h3>
+                  <EvidenceRows rows={[
+                    ["触发收盘价", crossEvidence.trigger?.close],
+                    ["20周期量比", crossEvidence.trigger?.volume_ratio_20],
+                    ["DIF", crossEvidence.trigger?.dif],
+                    ["DEA", crossEvidence.trigger?.dea],
+                    ["MACD柱", crossEvidence.trigger?.macd],
+                  ]} />
                 </section>
               </>
             )}

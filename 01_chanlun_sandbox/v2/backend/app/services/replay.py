@@ -83,7 +83,15 @@ class ReplayService:
 
     @staticmethod
     def _event_ids(payload: dict[str, Any]) -> set[str]:
-        return {item["id"] for item in payload["chan"]["execution"].get("signal_history", [])}
+        chan_events = {
+            item["id"]
+            for item in payload["chan"]["execution"].get("signal_history", [])
+        }
+        cross_level_events = {
+            f'{item["id"]}:{item["lifecycle"]["state"]}'
+            for item in payload.get("cross_level", {}).get("events", [])
+        }
+        return chan_events | cross_level_events
 
     def _evaluation(self, session: dict[str, Any], final_result: Any) -> dict[str, Any]:
         request = session["request"]

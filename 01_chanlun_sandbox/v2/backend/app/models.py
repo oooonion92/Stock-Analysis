@@ -103,6 +103,40 @@ class ChanSignal(StrictModel):
     evidence: dict[str, Any]
 
 
+class CrossLevelLifecycle(StrictModel):
+    state: Literal["candidate", "triggered", "confirmed", "invalidated", "expired"]
+    event_at: datetime
+    detected_at: datetime
+    triggered_at: datetime | None = None
+    confirmed_at: datetime | None = None
+    invalidated_at: datetime | None = None
+    expired_at: datetime | None = None
+
+
+class CrossLevelEvent(StrictModel):
+    id: str
+    source_level: Literal["5m"] = "5m"
+    target_level: Literal["30m"] = "30m"
+    direction: Literal["up", "down"]
+    label: str
+    source_signal_id: str
+    source_signal_label: str
+    source_price: float
+    break_boundary: float
+    risk_guard: float
+    lifecycle: CrossLevelLifecycle
+    evidence: dict[str, Any]
+
+
+class CrossLevelAnalysis(StrictModel):
+    version: str
+    source_level: Literal["5m"] = "5m"
+    target_level: Literal["30m"] = "30m"
+    events: list[CrossLevelEvent]
+    active: list[CrossLevelEvent]
+    summary: dict[str, int]
+
+
 class FusionState(StrictModel):
     grade: Literal["A", "B", "C", "D"]
     structure: str
@@ -158,6 +192,7 @@ class AnalysisResponse(BaseModel):
     indicators: dict[str, Any]
     radar: dict[str, Any]
     chan: dict[str, Any]
+    cross_level: CrossLevelAnalysis
     wyckoff: dict[str, Any]
     wave: dict[str, Any]
     fusion: FusionState

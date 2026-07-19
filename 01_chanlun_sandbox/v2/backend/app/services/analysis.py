@@ -12,6 +12,7 @@ import pandas as pd
 from ..config import AppConfig, normalize_profile, profile_values
 from ..data_service import DataService
 from ..engines.chanpy_engine import ChanPyEngine
+from ..engines.cross_level_reversal import CrossLevelReversalEngine
 from ..engines.fusion import FusionEngine
 from ..engines.chan_radar import ChanRadarAdapter
 from ..models import AnalysisResponse, AnalyzeRequest
@@ -22,6 +23,7 @@ class AnalysisService:
         self.config = config
         self.data = data
         self.chan_engine = ChanPyEngine()
+        self.cross_level_engine = CrossLevelReversalEngine()
         self.radar_engine = ChanRadarAdapter()
         self.fusion_engine = FusionEngine()
         self._cache: dict[str, AnalysisResponse] = {}
@@ -73,6 +75,12 @@ class AnalysisService:
         execution_chan = self.chan_engine.analyze(execution, request.execution_level, values)
         decision_chan = self.chan_engine.analyze(decision, request.decision_level, values)
         higher_chan = self.chan_engine.analyze(higher, "1d", values)
+        cross_level = self.cross_level_engine.analyze(
+            execution_chan,
+            decision_chan,
+            execution,
+            decision,
+        )
         execution_radar = self.radar_engine.analyze(execution_chan, request.execution_level)
         decision_radar = self.radar_engine.analyze(decision_chan, request.decision_level)
         higher_radar = self.radar_engine.analyze(higher_chan, "1d")
@@ -140,6 +148,7 @@ class AnalysisService:
                 "higher": self._prepare_radar(higher_radar, visible.iloc[0]["time"]),
             },
             chan={"execution": active_chan, "decision": decision_view, "higher": higher_view},
+            cross_level=cross_level,
             wyckoff=wyckoff,
             wave=wave,
             fusion=fusion,
@@ -308,6 +317,7 @@ class AnalysisService:
             "execution_level": payload["levels"]["execution"],
             "chan_state": payload["chan"]["execution"]["current"]["state"],
             "chan_signal": (payload["chan"]["execution"]["signals"] or [None])[-1],
+            "cross_level_event": (payload["cross_level"]["active"] or [None])[-1],
             "radar_state": payload["radar"]["execution"]["current"],
             "radar_event": (payload["radar"]["execution"]["events"] or [None])[-1],
             "model_conflict": payload["fusion"]["conflicts"],

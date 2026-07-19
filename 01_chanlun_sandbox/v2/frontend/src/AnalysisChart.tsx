@@ -17,6 +17,7 @@ import type {
   ChanCenter,
   ChanLine,
   ChanSignal,
+  CrossLevelEvent,
 } from "./types";
 
 echarts.use([
@@ -39,9 +40,11 @@ interface Props {
   layers: Record<string, boolean>;
   levelVisibility: Record<string, boolean>;
   onSignalSelect?: (signal: ChanSignal) => void;
+  onCrossLevelSelect?: (event: CrossLevelEvent) => void;
   signalAuditMode?: "confirmed" | "all" | "questionable";
   includeInvalidated?: boolean;
   selectedSignal?: ChanSignal | null;
+  selectedCrossLevel?: CrossLevelEvent | null;
 }
 
 function buildNearestTime(times: string[]) {
@@ -112,16 +115,20 @@ export default function AnalysisChart({
   layers,
   levelVisibility,
   onSignalSelect,
+  onCrossLevelSelect,
   signalAuditMode = "confirmed",
   includeInvalidated = false,
   selectedSignal = null,
+  selectedCrossLevel = null,
 }: Props) {
   const elementRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<EChartsType | null>(null);
   const signalSelectRef = useRef(onSignalSelect);
+  const crossLevelSelectRef = useRef(onCrossLevelSelect);
   const [zoomWindow, setZoomWindow] = useState<{ start: number; end: number } | null>(null);
 
   useEffect(() => { signalSelectRef.current = onSignalSelect; }, [onSignalSelect]);
+  useEffect(() => { crossLevelSelectRef.current = onCrossLevelSelect; }, [onCrossLevelSelect]);
 
   useEffect(() => {
     if (!elementRef.current) return;
@@ -131,6 +138,7 @@ export default function AnalysisChart({
     observer.observe(elementRef.current);
     const click = (params: any) => {
       if (params?.data?.chanSignal) signalSelectRef.current?.(params.data.chanSignal as ChanSignal);
+      if (params?.data?.crossLevelEvent) crossLevelSelectRef.current?.(params.data.crossLevelEvent as CrossLevelEvent);
     };
     const dataZoom = () => {
       const current = (chart.getOption() as any)?.dataZoom?.[0];
@@ -265,6 +273,39 @@ export default function AnalysisChart({
     });
     const penSignalData = buildSignalData("stroke");
     const segmentSignalData = buildSignalData("segment");
+    const crossLevelData = data.cross_level.events
+      .filter((event) => event.lifecycle.state !== "invalidated" || includeInvalidated)
+      .map((event) => {
+        const plotAt = event.lifecycle.confirmed_at || event.lifecycle.triggered_at || event.lifecycle.detected_at;
+        const mappedTime = nearest(plotAt);
+        const index = timeIndex.get(mappedTime);
+        if (index === undefined || index <= firstSignalIndex || index > visibleEndIndex) return null;
+        const up = event.direction === "up";
+        const state = event.lifecycle.state;
+        const stateText = state === "confirmed" ? "确认" : state === "triggered" ? "触发" : state === "invalidated" ? "失效" : "候选";
+        const color = state === "invalidated" ? "#8a96a3" : state === "triggered" ? "#d08723" : up ? "#177759" : "#af3745";
+        return {
+          value: [mappedTime, data.bars[index].close],
+          crossLevelEvent: event,
+          symbol: state === "confirmed" ? "diamond" : "circle",
+          symbolSize: state === "confirmed" ? 20 : 15,
+          itemStyle: { color, borderColor: "#ffffff", borderWidth: 1.5 },
+          label: {
+            show: showLabels,
+            formatter: `5→30${up ? "B" : "S"}·${stateText}`,
+            position: up ? "bottom" : "top",
+            distance: 5,
+            color,
+            backgroundColor: "rgba(255,255,255,.96)",
+            borderColor: color,
+            borderWidth: 1,
+            borderRadius: 3,
+            padding: [2, 4],
+            fontSize: 10,
+          },
+        };
+      })
+      .filter(Boolean);
 
     const dayStarts = times.filter((time, index) => index > 0 && time.slice(0, 10) !== times[index - 1].slice(0, 10));
     const allDays = [times[0], ...dayStarts];
@@ -385,6 +426,7 @@ export default function AnalysisChart({
         ...lineSeries("日线线段", higher.segments, layers.higherSegments && levelVisibility["1d"], "#63366e", 2.5),
         layers.signals && { name: "笔买卖点", type: "scatter", data: penSignalData, labelLayout: { hideOverlap: true }, cursor: "pointer", z: 9 },
         layers.segmentSignals && { name: "段买卖点", type: "scatter", data: segmentSignalData, labelLayout: { hideOverlap: true }, cursor: "pointer", z: 10 },
+        layers.crossLevel && { name: "5m→30m转折", type: "scatter", data: crossLevelData, labelLayout: { hideOverlap: true }, cursor: "pointer", z: 12 },
         selectedReference && {
           name: "对照段高亮", type: "line", data: [
             [nearest(selectedReference.startTime), selectedReference.startValue],
@@ -410,7 +452,7 @@ export default function AnalysisChart({
         layers.macd && { name: "DEA", type: "line", xAxisIndex: 2, yAxisIndex: 2, data: macd.dea, showSymbol: false, lineStyle: { width: 1, color: "#e08b35" } },
       ].filter(Boolean),
     }, true);
-  }, [data, layers, levelVisibility, signalAuditMode, includeInvalidated, selectedSignal, zoomWindow]);
+  }, [data, layers, levelVisibility, signalAuditMode, includeInvalidated, selectedSignal, selectedCrossLevel, zoomWindow]);
 
   return <div ref={elementRef} className="analysis-chart" aria-label="缠论多层级行情图" />;
 }
