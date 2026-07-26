@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$CollectorArgs = @()
 )
@@ -9,6 +9,12 @@ $ErrorActionPreference = "Stop"
 $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONUNBUFFERED = "1"
+
+$ProcessPath = [System.Environment]::GetEnvironmentVariable("Path", "Process")
+if ($ProcessPath) {
+    [System.Environment]::SetEnvironmentVariable("PATH", $null, "Process")
+    [System.Environment]::SetEnvironmentVariable("Path", $ProcessPath, "Process")
+}
 
 function Write-Section {
     param([string]$Text)
@@ -21,23 +27,13 @@ function Write-Section {
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Resolve-Path (Join-Path $ScriptDir "..\..\..")
 $Collector = Join-Path $ScriptDir "collect_forum_posts.py"
-$ReaderServer = Join-Path $ProjectRoot "02_daily_replay\reader_board_app\reader_board_server.py"
-$Requirements = Join-Path $ScriptDir "requirements.txt"
-$LocalPyDeps = Join-Path $ScriptDir ".pydeps"
-$CloudRoot = "D:\OneDrive\Stock\Replies collect"
-$LogRoot = Join-Path $CloudRoot "tool_logs"
-$ReaderServerPort = 8769
+$OutputRoot = "D:\OneDrive\Stock\Replies collect"
+$CloudRoot = $OutputRoot
+$LogRoot = Join-Path $OutputRoot "tool_logs"
+$WatchTargets = "D:\OneDrive\Stock\Replies collect\watch_targets.csv"
 
 if (-not (Test-Path -LiteralPath $Collector)) {
     throw "Cannot find collector script: $Collector"
-}
-
-if (-not (Test-Path -LiteralPath $ReaderServer)) {
-    throw "Cannot find reader server script: $ReaderServer"
-}
-
-if (-not (Test-Path -LiteralPath $Requirements)) {
-    throw "Cannot find requirements file: $Requirements"
 }
 
 if (-not (Test-Path -LiteralPath $LogRoot)) {
@@ -67,48 +63,46 @@ if (-not $Python) {
     throw "Cannot find Python. Expected bundled Codex runtime or system python."
 }
 
-if (-not (Test-Path -LiteralPath $LocalPyDeps)) {
-    New-Item -ItemType Directory -Force -Path $LocalPyDeps | Out-Null
+$Requirements = Join-Path $ScriptDir "requirements.txt"
+
+function Test-PythonModule {
+    param([string]$ModuleName)
+
+    $Check = @(
+        "-c",
+        "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('$ModuleName') else 1)"
+    )
+    & $Python @Check *> $null
+    return $LASTEXITCODE -eq 0
 }
 
-function Test-PythonImport {
-    param(
-        [string]$PythonExe,
-        [string]$ModuleName
-    )
-
-    $CheckCode = "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('$ModuleName') else 1)"
-    & $PythonExe -c $CheckCode | Out-Null
-    return ($LASTEXITCODE -eq 0)
-}
-
-function Ensure-ForumCrawlerDependencies {
-    param(
-        [string]$PythonExe,
-        [string]$RequirementsPath,
-        [string]$TargetDir
-    )
-
-    $env:PYTHONPATH = $TargetDir
-    $MissingModules = @("bs4", "lxml", "playwright", "scrapling") | Where-Object {
-        -not (Test-PythonImport -PythonExe $PythonExe -ModuleName $_)
+function Ensure-PythonDependencies {
+    $RequiredModules = @("bs4", "lxml", "scrapling", "playwright")
+    $MissingModules = @()
+    foreach ($ModuleName in $RequiredModules) {
+        if (-not (Test-PythonModule $ModuleName)) {
+            $MissingModules += $ModuleName
+        }
     }
 
     if ($MissingModules.Count -eq 0) {
         return
     }
 
-    Write-Host "Missing Python packages: $($MissingModules -join ', ')"
-    Write-Host "Installing forum crawler dependencies to $TargetDir ..."
-    & $PythonExe -m pip install --disable-pip-version-check --target $TargetDir -r $RequirementsPath
+    if (-not (Test-Path -LiteralPath $Requirements)) {
+        throw "Missing Python modules ($($MissingModules -join ', ')) and cannot find requirements file: $Requirements"
+    }
+
+    Write-Host "Installing missing Python dependencies: $($MissingModules -join ', ')"
+    & $Python -m pip install -r $Requirements
     if ($LASTEXITCODE -ne 0) {
-        throw "Failed to install forum crawler dependencies."
+        throw "Failed to install Python dependencies. Please check the network and pip output above."
     }
 }
 
-Ensure-ForumCrawlerDependencies -PythonExe $Python -RequirementsPath $Requirements -TargetDir $LocalPyDeps
+Ensure-PythonDependencies
 
-$DefaultArgs = @("--retries", "20", "--retry-delay", "3", "--export-format", "jsonl")
+$DefaultArgs = @("--retries", "20", "--retry-delay", "3", "--export-format", "both")
 if ((Get-Date).DayOfWeek -eq "Sunday") {
     $DefaultArgs += @("--min-pages", "3")
 }
@@ -118,9 +112,8 @@ if ($CollectorArgs.Count -gt 0) {
     $RunArgs = $DefaultArgs
 }
 
-$Stamp = Get-Date -Format "yyyyMMdd_HHmmss_fff"
+$Stamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $LogPath = Join-Path $LogRoot "forum_collect_$Stamp.log"
-$WatchTargets = Join-Path $CloudRoot "watch_targets.csv"
 $TotalTargets = 0
 if (Test-Path -LiteralPath $WatchTargets) {
     try {
@@ -147,10 +140,8 @@ $StartCollectText = -join ([char[]](24320,22987,25910,38598,65306))
 $CollectFailedText = -join ([char[]](25910,38598,22833,36133))
 $CollectDoneText = -join ([char[]](25910,38598,23436,25104,65306))
 $TargetUnitText = -join ([char[]](20010,30446,26631))
-$TodaySummaryName = (-join ([char[]](20170,26085,27719,24635))) + ".md"
 $RollingSummaryName = (-join ([char[]](26368,36817,51,22825,27719,24635))) + ".md"
 $ReaderDashboardName = (-join ([char[]](39640,25163,21457,35328,38405,35835,30475,26495))) + ".html"
-$LocalReaderBoard = Join-Path $ProjectRoot "02_daily_replay\高手发言阅读看板.html"
 $WeekendSummaryName = (-join ([char[]](21608,26411,19977,26085,27719,24635))) + ".md"
 $WeekendDashboardName = (-join ([char[]](21608,26411,39640,25163,21457,35328,38405,35835,30475,26495))) + ".html"
 
@@ -172,7 +163,8 @@ function Write-Dashboard {
         $status = "$status | Current: $($State.Current)"
     }
 
-    Write-Progress -Activity "Forum post collection" -Status $status -PercentComplete $percent
+    # Windows Terminal can corrupt wide CJK characters while redrawing progress.
+    # Events below remain the single source of live collection status.
     if ($Event) {
         Write-Host ("[{0}] {1}" -f (Get-Date -Format "HH:mm:ss"), $Event)
     }
@@ -200,79 +192,6 @@ function Close-CurrentTarget {
 function ConvertTo-CommandArgument {
     param([string]$Value)
     return '"' + ($Value -replace '"', '\"') + '"'
-}
-
-function Append-Utf8Line {
-    param(
-        [string]$Path,
-        [string]$Text
-    )
-
-    $Utf8 = [System.Text.UTF8Encoding]::new($false)
-    [System.IO.File]::AppendAllText($Path, $Text + [Environment]::NewLine, $Utf8)
-}
-
-function Test-TcpPortOpen {
-    param(
-        [string]$HostName,
-        [int]$Port
-    )
-
-    try {
-        $Client = [System.Net.Sockets.TcpClient]::new()
-        $Async = $Client.BeginConnect($HostName, $Port, $null, $null)
-        $Success = $Async.AsyncWaitHandle.WaitOne(500)
-        if (-not $Success) {
-            $Client.Close()
-            return $false
-        }
-        $Client.EndConnect($Async)
-        $Client.Close()
-        return $true
-    } catch {
-        return $false
-    }
-}
-
-function Get-ReaderServerHealth {
-    param(
-        [string]$Url
-    )
-
-    try {
-        $Response = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 2
-        if ($Response.StatusCode -ne 200) {
-            return $false
-        }
-        $Payload = $Response.Content | ConvertFrom-Json
-        return [bool]($Payload.sites -and $Payload.db_path)
-    } catch {
-        return $false
-    }
-}
-
-function Stop-ProcessOnPort {
-    param([int]$Port)
-
-    $Connection = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue |
-        Select-Object -First 1
-    if (-not $Connection) {
-        return $false
-    }
-
-    $ProcessId = $Connection.OwningProcess
-    if (-not $ProcessId) {
-        return $false
-    }
-
-    try {
-        Stop-Process -Id $ProcessId -Force -ErrorAction Stop
-        Start-Sleep -Milliseconds 600
-        return $true
-    } catch {
-        Write-Host "Failed to stop process on port ${Port}: $($_.Exception.Message)"
-        return $false
-    }
 }
 
 function Process-CollectorLine {
@@ -334,32 +253,6 @@ Write-Host "Note: this tool reuses the existing browser_profile login state."
 Write-Host "It will not clear browser processes or cookies."
 Write-Host ""
 
-if (Test-TcpPortOpen -HostName "127.0.0.1" -Port $ReaderServerPort) {
-    if (Get-ReaderServerHealth -Url "http://127.0.0.1:$ReaderServerPort/api/options") {
-        Write-Host "Reader server already running: http://127.0.0.1:$ReaderServerPort"
-    } else {
-        Write-Host "Reader server on port $ReaderServerPort is outdated or invalid. Restarting it..."
-        [void](Stop-ProcessOnPort -Port $ReaderServerPort)
-    }
-}
-
-if (-not (Test-TcpPortOpen -HostName "127.0.0.1" -Port $ReaderServerPort)) {
-    $ReaderStdOut = Join-Path $LogRoot "expert_reader_server.stdout.log"
-    $ReaderStdErr = Join-Path $LogRoot "expert_reader_server.stderr.log"
-    $ReaderArgs = @("-u", $ReaderServer)
-    $ReaderArgumentList = ($ReaderArgs | ForEach-Object { ConvertTo-CommandArgument $_ }) -join " "
-    $ReaderProcess = Start-Process `
-        -FilePath $Python `
-        -ArgumentList $ReaderArgumentList `
-        -WorkingDirectory $ScriptDir `
-        -RedirectStandardOutput $ReaderStdOut `
-        -RedirectStandardError $ReaderStdErr `
-        -WindowStyle Hidden `
-        -PassThru
-    Start-Sleep -Milliseconds 800
-    Write-Host "Reader server started: http://127.0.0.1:$ReaderServerPort (PID: $($ReaderProcess.Id))"
-}
-
 Push-Location $ScriptDir
 try {
     Write-Dashboard "Ready to start."
@@ -384,11 +277,11 @@ try {
     $SeenErr = 0
     while (-not $CrawlerProcess.HasExited) {
         foreach ($Line in (Read-NewLines -Path $StdOutPath -Seen ([ref]$SeenOut))) {
-            Append-Utf8Line -Path $LogPath -Text ([string]$Line)
+            Add-Content -LiteralPath $LogPath -Value $Line -Encoding utf8
             Process-CollectorLine $Line
         }
         foreach ($Line in (Read-NewLines -Path $StdErrPath -Seen ([ref]$SeenErr))) {
-            Append-Utf8Line -Path $LogPath -Text ("[stderr] " + [string]$Line)
+            Add-Content -LiteralPath $LogPath -Value "[stderr] $Line" -Encoding utf8
             Write-Dashboard "[stderr] $Line"
             Write-Host "[stderr] $Line"
         }
@@ -398,11 +291,11 @@ try {
     }
 
     foreach ($Line in (Read-NewLines -Path $StdOutPath -Seen ([ref]$SeenOut))) {
-        Append-Utf8Line -Path $LogPath -Text ([string]$Line)
+        Add-Content -LiteralPath $LogPath -Value $Line -Encoding utf8
         Process-CollectorLine $Line
     }
     foreach ($Line in (Read-NewLines -Path $StdErrPath -Seen ([ref]$SeenErr))) {
-        Append-Utf8Line -Path $LogPath -Text ("[stderr] " + [string]$Line)
+        Add-Content -LiteralPath $LogPath -Value "[stderr] $Line" -Encoding utf8
         Write-Dashboard "[stderr] $Line"
         Write-Host "[stderr] $Line"
     }
@@ -427,21 +320,6 @@ if ($ExitCode -eq 0) {
     Write-Host "Collection command returned exit code: $ExitCode"
 }
 
-$ReportsRoot = Join-Path $CloudRoot "reports"
-if (Test-Path -LiteralPath $ReportsRoot) {
-    $LatestReport = Get-ChildItem -LiteralPath $ReportsRoot -Filter "collect_report_*.md" |
-        Sort-Object LastWriteTime -Descending |
-        Select-Object -First 1
-    if ($LatestReport) {
-        Write-Host "Latest report: $($LatestReport.FullName)"
-    }
-}
-
-$TodaySummary = Join-Path $CloudRoot $TodaySummaryName
-if (Test-Path -LiteralPath $TodaySummary) {
-    Write-Host "Today summary: $TodaySummary"
-}
-
 $RollingSummary = Join-Path $CloudRoot $RollingSummaryName
 if (Test-Path -LiteralPath $RollingSummary) {
     Write-Host "Rolling 3-day summary: $RollingSummary"
@@ -460,10 +338,6 @@ if (Test-Path -LiteralPath $WeekendSummary) {
 $WeekendDashboard = Join-Path $CloudRoot $WeekendDashboardName
 if (Test-Path -LiteralPath $WeekendDashboard) {
     Write-Host "Weekend dashboard: $WeekendDashboard"
-}
-Write-Host "Reader API: http://127.0.0.1:$ReaderServerPort"
-if (Test-Path -LiteralPath $LocalReaderBoard) {
-    Write-Host "Local reader board: $LocalReaderBoard"
 }
 
 Write-Host "Log file: $LogPath"

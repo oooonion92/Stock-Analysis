@@ -11,7 +11,9 @@ from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
 from crawl_nga_author_replies import find_browser, strip_html
-from playwright.sync_api import Response, sync_playwright
+from playwright.sync_api import BrowserContext, Response
+from browser_session import playwright_for_context
+from reply_structure import apply_reply_structure, parse_xueqiu_content
 
 
 PROFILE_DIR = Path(__file__).resolve().parent / "browser_profile"
@@ -76,7 +78,8 @@ def normalize_status(item: dict[str, Any], user_id: str, author_name: str, sourc
     status_id = str(item.get("id") or item.get("id_str") or item.get("status_id") or "")
     raw_text = item.get("text") or item.get("description") or item.get("content") or ""
     title = strip_html(item.get("title") or "")
-    text = clean_xueqiu_text(raw_text)
+    structure = parse_xueqiu_content(str(raw_text))
+    text = structure["body"]
     if not status_id or (not text and not title):
         return None
 
@@ -85,7 +88,7 @@ def normalize_status(item: dict[str, Any], user_id: str, author_name: str, sourc
         return None
     author = str(user.get("screen_name") or user.get("name") or author_name or "雪球关注流")
     author_id = str(user.get("id") or user_id or "following")
-    return {
+    record = {
         "id": f"xueqiu:{status_id}",
         "site": "雪球",
         "author": author,
@@ -100,6 +103,7 @@ def normalize_status(item: dict[str, Any], user_id: str, author_name: str, sourc
         "crawl_time": now_iso(),
         "raw": item,
     }
+    return apply_reply_structure(record, structure)
 
 
 def walk_status_dicts(payload: Any) -> list[dict[str, Any]]:
@@ -173,11 +177,12 @@ def crawl_feed(
     delay: float,
     headless: bool,
     exists_checker: Callable[[dict[str, Any]], bool] | None = None,
+    browser_context: BrowserContext | None = None,
 ) -> list[dict[str, Any]]:
     captured: list[Any] = []
     records: list[dict[str, Any]] = []
     seen: set[str] = set()
-    with sync_playwright() as p:
+    with playwright_for_context(browser_context) as (p, owns_context):
         context = p.chromium.launch_persistent_context(
             user_data_dir=str(PROFILE_DIR),
             executable_path=find_browser(),
@@ -203,7 +208,8 @@ def crawl_feed(
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             page.wait_for_timeout(int(delay * 1000))
 
-        context.close()
+        if owns_context:
+            context.close()
 
     records = dedupe(records)
     print(f"雪球关注流：提取 {len(records)} 条候选发言")
@@ -217,12 +223,13 @@ def crawl_user_timeline(
     delay: float,
     headless: bool,
     exists_checker: Callable[[dict[str, Any]], bool] | None = None,
+    browser_context: BrowserContext | None = None,
 ) -> list[dict[str, Any]]:
     user_id = extract_user_id(user_id_or_url)
     user_url = normalize_user_url(user_id_or_url)
     captured: list[Any] = []
 
-    with sync_playwright() as p:
+    with playwright_for_context(browser_context) as (p, owns_context):
         context = p.chromium.launch_persistent_context(
             user_data_dir=str(PROFILE_DIR),
             executable_path=find_browser(),
@@ -261,7 +268,8 @@ def crawl_user_timeline(
                 seen.add(str(record.get("id") or record.get("url") or record.get("content")))
                 records.append(record)
             time.sleep(delay)
-        context.close()
+        if owns_context:
+            context.close()
 
     print(f"雪球用户 {user_id}：提取 {len(dedupe(records))} 条候选发言")
     return dedupe(records)
@@ -274,11 +282,12 @@ def crawl(
     delay: float,
     headless: bool,
     exists_checker: Callable[[dict[str, Any]], bool] | None = None,
+    browser_context: BrowserContext | None = None,
 ) -> list[dict[str, Any]]:
     user_id = extract_user_id(user_id_or_url)
     if user_id.lower() in FEED_ALIASES or user_id == "following":
-        return crawl_feed(author_name, pages, delay, headless, exists_checker=exists_checker)
-    return crawl_user_timeline(user_id_or_url, author_name, pages, delay, headless, exists_checker=exists_checker)
+        return crawl_feed(author_name, pages, delay, headless, exists_checker=exists_checker, browser_context=browser_context)
+    return crawl_user_timeline(user_id_or_url, author_name, pages, delay, headless, exists_checker=exists_checker, browser_context=browser_context)
 
 
 def main() -> int:

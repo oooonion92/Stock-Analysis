@@ -1,20 +1,61 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
+import os
+import re
+import shutil
+import stat
 from datetime import datetime, time, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from zoneinfo import ZoneInfo
 
 from crawl_watchlist import crawl_target
 from export_posts import OUTPUT_ROOT, export_all_posts
-from forum_paths import CLOUD_REPORTS_ROOT, CLOUD_ROOT, CLOUD_WATCH_TARGETS
+from forum_paths import CLOUD_MARKDOWN_ROOT, CLOUD_REPORTS_ROOT, CLOUD_ROOT, CLOUD_WATCH_TARGETS
 from forum_db import connect, list_enabled_targets
 from import_watch_targets import import_csv
+from reply_structure import stored_reply_structure, structured_markdown_lines
+
 
 REPORT_DIR = CLOUD_REPORTS_ROOT
-READER_CENTER_URL = "http://127.0.0.1:8769/"
+EXPERTS_JSON_PATH = CLOUD_MARKDOWN_ROOT / "experts-data.json"
+SHANGHAI_TZ = ZoneInfo("Asia/Shanghai")
+
+LEGACY_CLOUD_EXPORTS = (
+    CLOUD_ROOT / "今日汇总.md",
+    CLOUD_ROOT / "最近7天汇总.md",
+    CLOUD_ROOT / "趋势高手汇总.md",
+    CLOUD_ROOT / "短线高手汇总.md",
+    CLOUD_ROOT / "_index.md",
+    CLOUD_ROOT / "authors",
+    CLOUD_ROOT / "raw_jsonl",
+    CLOUD_ROOT / "reports",
+)
+
+
+def remove_readonly(func, path, _exc_info) -> None:
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
+
+def cleanup_legacy_cloud_exports() -> tuple[int, list[str]]:
+    removed = 0
+    warnings: list[str] = []
+    for path in LEGACY_CLOUD_EXPORTS:
+        try:
+            if path.is_dir():
+                shutil.rmtree(path, onexc=remove_readonly)
+                removed += 1
+            elif path.exists():
+                path.unlink()
+                removed += 1
+        except OSError as exc:
+            warnings.append(f"{path}: {exc}")
+    return removed, warnings
 
 
 def clean_title(value: str | None) -> str:
@@ -133,7 +174,7 @@ def write_report(summary: list[dict], exported_paths: list[Path]) -> Path:
 
 
 def write_export_index(exported_paths: list[Path]) -> Path:
-    index_path = CLOUD_ROOT / "_index.md"
+    index_path = CLOUD_MARKDOWN_ROOT / "_index.md"
     grouped: dict[str, list[Path]] = {}
     for path in exported_paths:
         if path.suffix.lower() != ".md":
@@ -190,7 +231,6 @@ def fetch_posts_for_summary(
     days: int | None = None,
     style: str | None = None,
     limit: int | None = None,
-    target_date: str | None = None,
     start_time: datetime | None = None,
     end_time: datetime | None = None,
 ) -> list:
@@ -212,10 +252,9 @@ def fetch_posts_for_summary(
             """
         )
     )
+    rows = [row for row in rows if str(row["content"] or "").strip()]
     if style:
         rows = [row for row in rows if row["style"] == style]
-    if target_date is not None:
-        rows = [row for row in rows if post_date(row) == target_date]
     if start_time is not None or end_time is not None:
         filtered = []
         for row in rows:
@@ -283,35 +322,565 @@ def render_summary(title: str, rows) -> str:
                 )
                 if should_show_preview(content, preview):
                     lines.extend(["", f"**速览：** {preview}"])
-                lines.extend(["", content, "", "---", ""])
+                structure = stored_reply_structure(row["raw_json"], content)
+                lines.append("")
+                lines.extend(structured_markdown_lines(content, post_author_name(row), structure))
+                lines.extend(["", "---", ""])
                 index += 1
     return "\n".join(lines).strip() + "\n"
 
 
 def write_summary_files() -> list[Path]:
-    CLOUD_ROOT.mkdir(parents=True, exist_ok=True)
+    CLOUD_MARKDOWN_ROOT.mkdir(parents=True, exist_ok=True)
     paths: list[Path] = []
+    today_start = datetime.combine(datetime.now().date(), time.min)
+    today_end = datetime.combine(datetime.now().date(), time.max)
+    recent_seven_start = datetime.combine(datetime.now().date() - timedelta(days=6), time.min)
     with connect() as conn:
-        today = datetime.now().strftime("%Y-%m-%d")
         specs = [
-            ("今日汇总.md", "今日高手发言汇总", None, None, 200, today),
-            ("最近3天汇总.md", "最近3天高手发言汇总", 3, None, None, None),
-            ("最近7天汇总.md", "最近7天高手发言汇总", 7, None, 500, None),
-            ("趋势高手汇总.md", "趋势高手发言汇总", 14, "趋势", 500, None),
-            ("短线高手汇总.md", "短线高手发言汇总", 14, "短线", 500, None),
+            ("今日汇总.md", "今日高手发言汇总", None, today_start, today_end),
+            ("最近3天汇总.md", "最近3天高手发言汇总", 3, None, None),
+            ("最近7天汇总.md", "最近7天高手发言汇总", None, recent_seven_start, today_end),
         ]
-        for filename, title, days, style, limit, target_date in specs:
-            path = CLOUD_ROOT / filename
+        for filename, title, days, start_time, end_time in specs:
+            path = CLOUD_MARKDOWN_ROOT / filename
             rows = fetch_posts_for_summary(
                 conn,
                 days=days,
-                style=style,
-                limit=limit,
-                target_date=target_date,
+                start_time=start_time,
+                end_time=end_time,
             )
             path.write_text(render_summary(title, rows), encoding="utf-8-sig")
             paths.append(path)
     return paths
+
+
+def parse_shanghai_time(value: str | None) -> datetime | None:
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        parsed = None
+    if parsed is None:
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+            try:
+                parsed = datetime.strptime(raw, fmt)
+                break
+            except ValueError:
+                continue
+    if parsed is None:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=SHANGHAI_TZ)
+    return parsed.astimezone(SHANGHAI_TZ)
+
+
+def parse_real_published_time(row) -> datetime | None:
+    published = str(row["published_at"] or "").strip()
+    crawled = str(row["crawled_at"] or "").strip()
+    if not published or (crawled and published == crawled):
+        return None
+    return parse_shanghai_time(published)
+
+
+def normalize_body(value: str | None) -> str:
+    lines = [line.rstrip() for line in (value or "").replace("\r\n", "\n").replace("\r", "\n").split("\n")]
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    return "\n".join(lines)
+
+
+def stable_expert_id(row, source: str, author: str, published_at: datetime, body: str) -> str:
+    source_slug = {"NGA": "nga", "虎扑": "hupu", "雪球": "xueqiu"}.get(source)
+    if not source_slug:
+        source_slug = re.sub(r"[^a-z0-9]+", "-", source.lower()).strip("-") or "source"
+    external_post_id = str(row["external_post_id"] or "").strip()
+    if external_post_id:
+        return f"{source_slug}-{external_post_id}"
+    url = str(row["url"] or "").strip()
+    if url:
+        digest_input = url
+    else:
+        digest_input = f"{source}|{author}|{published_at.isoformat()}|{body}"
+    digest = hashlib.sha256(digest_input.encode("utf-8")).hexdigest()[:20]
+    return f"{source_slug}-{digest}"
+
+
+def validate_experts_payload(payload: dict) -> None:
+    records = payload.get("records")
+    if not isinstance(records, list) or payload.get("recordCount") != len(records):
+        raise ValueError("recordCount 与 records 数量不一致")
+    if not payload.get("updatedAt"):
+        raise ValueError("updatedAt 不能为空")
+    datetime.fromisoformat(str(payload["updatedAt"]))
+
+    seen: set[str] = set()
+    previous_key: tuple[str, str] | None = None
+    for index, record in enumerate(records, 1):
+        stable_id = str(record.get("id") or "")
+        if not stable_id or stable_id in seen:
+            raise ValueError(f"第 {index} 条记录 ID 为空或重复：{stable_id}")
+        seen.add(stable_id)
+        try:
+            datetime.strptime(str(record.get("date") or ""), "%Y-%m-%d")
+        except ValueError as exc:
+            raise ValueError(f"第 {index} 条记录日期无效") from exc
+        record_time = str(record.get("time") or "")
+        if record_time:
+            try:
+                datetime.strptime(record_time, "%H:%M")
+            except ValueError as exc:
+                raise ValueError(f"第 {index} 条记录时间无效") from exc
+        for field in ("source", "author", "body"):
+            if not str(record.get(field) or "").strip():
+                raise ValueError(f"第 {index} 条记录缺少 {field}")
+        url = str(record.get("url") or "")
+        if url and not re.match(r"^https?://", url, flags=re.IGNORECASE):
+            raise ValueError(f"第 {index} 条记录 URL 无效")
+        chain = record.get("replyChain") or []
+        if not isinstance(chain, list):
+            raise ValueError(f"第 {index} 条记录 replyChain 不是数组")
+        for quote_index, quote in enumerate(chain, 1):
+            if not isinstance(quote, dict) or not str(quote.get("body") or "").strip():
+                raise ValueError(f"第 {index} 条记录的第 {quote_index} 层引用无有效正文")
+        current_key = (record["date"], record_time)
+        if previous_key is not None and current_key > previous_key:
+            raise ValueError("records 未按日期时间倒序排列")
+        previous_key = current_key
+
+
+def write_experts_json(path: Path = EXPERTS_JSON_PATH) -> tuple[Path, int]:
+    now = datetime.now(SHANGHAI_TZ)
+    start_date = now.date() - timedelta(days=6)
+    start_time = datetime.combine(start_date, time.min, tzinfo=SHANGHAI_TZ)
+    end_time = datetime.combine(now.date(), time.max, tzinfo=SHANGHAI_TZ)
+
+    with connect() as conn:
+        rows = fetch_posts_for_summary(conn)
+
+    records: list[dict] = []
+    seen: set[str] = set()
+    for row in rows:
+        published_at = parse_real_published_time(row)
+        if published_at is None or published_at < start_time or published_at > end_time:
+            continue
+        source = str(row["site_name"] or "").strip()
+        author = post_author_name(row).strip()
+        structure = stored_reply_structure(row["raw_json"], row["content"])
+        body = normalize_body(structure["body"])
+        if not source or not author or not body:
+            continue
+        stable_id = stable_expert_id(row, source, author, published_at, body)
+        if stable_id in seen:
+            continue
+        seen.add(stable_id)
+        records.append(
+            {
+                "_sort_ts": published_at.timestamp(),
+                "_db_id": int(row["id"]),
+                "id": stable_id,
+                "date": published_at.strftime("%Y-%m-%d"),
+                "time": published_at.strftime("%H:%M"),
+                "source": source,
+                "author": author,
+                "category": str(row["style"] or ""),
+                "topic": clean_title(row["title"]),
+                "url": str(row["url"] or "").strip(),
+                "body": body,
+                "quote": structure["quote"],
+                "replyChain": structure["replyChain"],
+                "rawText": structure["rawText"],
+                "quoteParseStatus": structure["quoteParseStatus"],
+                "quoteParseError": structure["quoteParseError"],
+            }
+        )
+    records.sort(key=lambda item: (-item["_sort_ts"], item["_db_id"]))
+    for record in records:
+        record.pop("_sort_ts", None)
+        record.pop("_db_id", None)
+    if not records:
+        raise ValueError("最近 7 个自然日没有有效记录，保留上一版 experts-data.json")
+
+    generated_at = now.isoformat(timespec="seconds")
+    payload = {
+        "source": "collector database",
+        "updatedAt": generated_at,
+        "recordCount": len(records),
+        "records": records,
+        "schemaVersion": 1,
+        "generatedAt": generated_at,
+        "window": {
+            "timezone": "Asia/Shanghai",
+            "startDate": start_date.isoformat(),
+            "endDate": now.date().isoformat(),
+        },
+    }
+    validate_experts_payload(payload)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_name(f"{path.name}.tmp")
+    try:
+        temp_path.write_text(
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n",
+            encoding="utf-8",
+        )
+        json.loads(temp_path.read_text(encoding="utf-8"))
+        os.replace(temp_path, path)
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+    return path, len(records)
+
+
+def write_reader_dashboard(
+    days: int = 14,
+    limit: int | None = None,
+    path: Path | None = None,
+    title: str = "高手发言阅读看板",
+    rows: list | None = None,
+    combined_label: str | None = None,
+) -> Path:
+    path = CLOUD_ROOT / "高手发言阅读看板.html"
+    with connect() as conn:
+        rows = fetch_posts_for_summary(conn, days=days, limit=limit)
+
+    grouped: dict[str, dict[str, dict[str, list]]] = {}
+    for row in rows:
+        date = post_date(row)
+        style = row["style"] or "未分类"
+        source = f"{row['site_name']} / {row['author_name']}"
+        grouped.setdefault(date, {}).setdefault(style, {}).setdefault(source, []).append(row)
+
+    dates = sorted(grouped.keys(), key=date_sort_key, reverse=True)
+    selected_date = dates[0] if dates else ""
+    total_records = sum(len(grouped[date][style][source]) for date in grouped for style in grouped[date] for source in grouped[date][style])
+    generated_at = datetime.now().isoformat(timespec="seconds")
+
+    sections: list[str] = []
+    for date in dates:
+        sections.append(
+            f'<section class="date-section" data-date="{html.escape(date)}" '
+            f'{"hidden" if date != selected_date else ""}>'
+        )
+        sections.append(f'<div class="date-heading"><span>{html.escape(date)}</span><em>{sum(len(grouped[date][style][source]) for style in grouped[date] for source in grouped[date][style])} records</em></div>')
+        for style in sorted(grouped[date]):
+            sections.append(f'<h2 class="style-heading">{html.escape(style)}</h2>')
+            for source in sorted(grouped[date][style]):
+                anchor = html_id(date, style, source)
+                records = grouped[date][style][source]
+                sections.append(
+                    f'<section class="author-section" id="{anchor}" data-date="{html.escape(date)}" '
+                    f'data-style="{html.escape(style)}" data-source="{html.escape(source)}" data-count="{len(records)}">'
+                )
+                sections.append(f'<h3>{html.escape(source)} <span>{len(records)}</span></h3>')
+                for index, row in enumerate(records, 1):
+                    content = (row["content"] or "").strip()
+                    if not content:
+                        continue
+                    title = clean_title(row["title"])
+                    url = row["url"] or ""
+                    sections.append('<article class="post">')
+                    sections.append('<div class="post-meta">')
+                    sections.append(f'<span>{html.escape(format_time(row["published_at"] or row["crawled_at"]))}</span>')
+                    sections.append(f'<span>{html.escape(post_author_name(row))}</span>')
+                    if title:
+                        sections.append(f'<span>{html.escape(title)}</span>')
+                    if url:
+                        sections.append(f'<a href="{html.escape(url)}" target="_blank" rel="noopener">查看原帖</a>')
+                    sections.append('</div>')
+                    sections.append(f'<div class="content">{render_text_html(content)}</div>')
+                    sections.append('</article>')
+                sections.append('</section>')
+        sections.append('</section>')
+
+    text = f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>高手发言阅读看板</title>
+  <style>
+    :root {{
+      --bg: #f5f6f2;
+      --panel: #ffffff;
+      --ink: #20242a;
+      --muted: #68707a;
+      --line: #dfe3e6;
+      --accent: #1f6feb;
+      --accent-soft: #eaf2ff;
+      --green: #2f7d57;
+    }}
+    * {{ box-sizing: border-box; }}
+    html {{ scroll-behavior: smooth; }}
+    body {{
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
+      line-height: 1.72;
+    }}
+    .sidebar {{
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: 340px;
+      padding: 22px 18px;
+      overflow-y: auto;
+      background: #fbfcfa;
+      border-right: 1px solid var(--line);
+    }}
+    .brand h1 {{
+      margin: 0 0 6px;
+      font-size: 22px;
+      line-height: 1.25;
+    }}
+    .brand p {{
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 13px;
+    }}
+    .nav-title {{
+      margin: 18px 0 10px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 700;
+      letter-spacing: 0;
+    }}
+    .author-nav {{
+      display: grid;
+      gap: 8px;
+    }}
+    .author-nav a {{
+      display: block;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel);
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 14px;
+    }}
+    .author-nav a:hover,
+    .author-nav a.active {{
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: #0b4fb3;
+    }}
+    .author-nav .style-label {{
+      margin: 10px 0 2px;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 800;
+    }}
+    .date-control {{
+      margin-top: 22px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+    }}
+    label {{
+      display: block;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }}
+    select {{
+      width: 100%;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--ink);
+      padding: 0 10px;
+      font-size: 15px;
+    }}
+    .meta {{
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 12px;
+    }}
+    main {{
+      margin-left: 340px;
+      padding: 30px 44px 80px;
+    }}
+    .reader {{
+      width: min(1180px, 100%);
+    }}
+    .date-heading {{
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }}
+    .date-heading span {{
+      font-size: 28px;
+      font-weight: 800;
+    }}
+    .date-heading em {{
+      color: var(--muted);
+      font-style: normal;
+    }}
+    .style-heading {{
+      margin: 28px 0 12px;
+      font-size: 22px;
+    }}
+    .author-section {{
+      scroll-margin-top: 18px;
+      margin-bottom: 34px;
+    }}
+    .author-section h3 {{
+      margin: 0 0 12px;
+      font-size: 19px;
+    }}
+    .author-section h3 span {{
+      margin-left: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+    }}
+    .post {{
+      margin: 0 0 16px;
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }}
+    .post-meta {{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      color: var(--muted);
+      font-size: 13px;
+    }}
+    .post-meta a {{
+      color: var(--accent);
+      text-decoration: none;
+    }}
+    .preview {{
+      margin: 12px 0 10px;
+      color: #0f3d2c;
+      font-weight: 700;
+    }}
+    .content {{
+      white-space: normal;
+      font-size: 16px;
+    }}
+    @media (max-width: 860px) {{
+      .sidebar {{
+        position: static;
+        width: auto;
+        max-height: none;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }}
+      main {{
+        margin-left: 0;
+        padding: 22px 16px 60px;
+      }}
+      .date-heading span {{
+        font-size: 23px;
+      }}
+    }}
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>高手发言阅读看板</h1>
+      <p>{html.escape(generated_at)} ｜ 最新日期 {html.escape(selected_date or "无")} ｜ {total_records} records</p>
+    </div>
+    <div class="nav-title">作者导航</div>
+    <nav id="authorNav" class="author-nav"></nav>
+    <div class="date-control">
+      <label for="dateSelect">日期选择</label>
+      <select id="dateSelect" data-latest-date="{html.escape(selected_date)}"></select>
+    </div>
+    <div class="meta">点击作者名后，右侧阅读区会跳到对应位置。</div>
+  </aside>
+  <main>
+    <div class="reader">
+      {''.join(sections)}
+    </div>
+  </main>
+  <script>
+    const dateSelect = document.getElementById('dateSelect');
+    const authorNav = document.getElementById('authorNav');
+
+    function dateRank(date) {{
+      const time = Date.parse(`${{date}}T00:00:00`);
+      return Number.isNaN(time) ? -1 : time;
+    }}
+
+    function availableDates() {{
+      const dates = Array.from(document.querySelectorAll('.date-section'))
+        .map(section => section.dataset.date)
+        .filter(Boolean);
+      return Array.from(new Set(dates)).sort((a, b) => dateRank(b) - dateRank(a) || b.localeCompare(a));
+    }}
+
+    function rebuildDateSelect() {{
+      const dates = availableDates();
+      dateSelect.innerHTML = '';
+      dates.forEach(date => {{
+        const option = document.createElement('option');
+        option.value = date;
+        option.textContent = date;
+        dateSelect.appendChild(option);
+      }});
+      const latest = dates[0] || '';
+      dateSelect.dataset.latestDate = latest;
+      return latest;
+    }}
+
+    function showDate(date) {{
+      document.querySelectorAll('.date-section').forEach(section => {{
+        section.hidden = section.dataset.date !== date;
+      }});
+      renderAuthorNav(date);
+      dateSelect.value = date;
+      const activeSection = document.querySelector(`.date-section[data-date="${{CSS.escape(date)}}"]`);
+      if (activeSection) window.scrollTo({{ top: activeSection.offsetTop - 16, behavior: 'smooth' }});
+    }}
+
+    function renderAuthorNav(date) {{
+      authorNav.innerHTML = '';
+      const sections = Array.from(document.querySelectorAll(`.author-section[data-date="${{CSS.escape(date)}}"]`));
+      let lastStyle = '';
+      sections.forEach(section => {{
+        if (section.dataset.style !== lastStyle) {{
+          const label = document.createElement('div');
+          label.className = 'style-label';
+          label.textContent = section.dataset.style;
+          authorNav.appendChild(label);
+          lastStyle = section.dataset.style;
+        }}
+        const link = document.createElement('a');
+        link.href = `#${{section.id}}`;
+        link.textContent = `${{section.dataset.source}} (${{section.dataset.count}})`;
+        link.addEventListener('click', () => {{
+          authorNav.querySelectorAll('a').forEach(item => item.classList.remove('active'));
+          link.classList.add('active');
+        }});
+        authorNav.appendChild(link);
+      }});
+    }}
+
+    dateSelect.addEventListener('change', event => showDate(event.target.value));
+    const latestDate = rebuildDateSelect();
+    if (latestDate) {{
+      showDate(latestDate);
+    }}
+  </script>
+</body>
+</html>
+"""
+    path.write_text(text, encoding="utf-8-sig")
+    return path
 
 
 def fetch_weekend_posts() -> tuple[list, str]:
@@ -321,71 +890,10 @@ def fetch_weekend_posts() -> tuple[list, str]:
     return rows, label
 
 
-def render_reader_redirect_html(title: str, target_url: str, helper: str) -> str:
-    escaped_title = html.escape(title)
-    escaped_target = html.escape(target_url, quote=True)
-    escaped_helper = html.escape(helper)
-    return f"""<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{escaped_title}</title>
-  <meta http-equiv="refresh" content="0; url={escaped_target}">
-  <style>
-    body {{
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      background: #f5f6f2;
-      color: #20242a;
-      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
-    }}
-    .panel {{
-      width: min(560px, calc(100vw - 32px));
-      padding: 24px 26px;
-      background: #fff;
-      border: 1px solid #dfe3e6;
-      border-radius: 10px;
-      box-shadow: 0 10px 30px rgba(31, 36, 42, 0.06);
-    }}
-    h1 {{ margin: 0 0 10px; font-size: 22px; line-height: 1.3; }}
-    p {{ margin: 0 0 12px; color: #68707a; line-height: 1.7; }}
-    a {{
-      color: #1f6feb;
-      text-decoration: none;
-      font-weight: 700;
-    }}
-  </style>
-</head>
-<body>
-  <div class="panel">
-    <h1>{escaped_title}</h1>
-    <p>{escaped_helper}</p>
-    <p>如果没有自动跳转，请点击：<a href="{escaped_target}">{escaped_target}</a></p>
-  </div>
-</body>
-</html>
-"""
-
-
-def write_reader_dashboard(days: int = 14, limit: int | None = None) -> Path:
-    path = CLOUD_ROOT / "高手发言阅读看板.html"
-    path.write_text(
-        render_reader_redirect_html(
-            title="高手发言阅读中心",
-            target_url=READER_CENTER_URL,
-            helper="这版看板已经切到数据库直读模式，不再依赖 markdown 中间层。",
-        ),
-        encoding="utf-8",
-    )
-    return path
-
-
 def write_weekend_summary_file() -> tuple[Path, int, str]:
+    CLOUD_MARKDOWN_ROOT.mkdir(parents=True, exist_ok=True)
     rows, label = fetch_weekend_posts()
-    path = CLOUD_ROOT / "周末三日汇总.md"
+    path = CLOUD_MARKDOWN_ROOT / "周末三日汇总.md"
     path.write_text(render_summary(f"周末三日高手发言汇总（{label}）", rows), encoding="utf-8-sig")
     return path, len(rows), label
 
@@ -393,15 +901,134 @@ def write_weekend_summary_file() -> tuple[Path, int, str]:
 def write_weekend_reader_dashboard() -> tuple[Path, int, str]:
     rows, label = fetch_weekend_posts()
     path = CLOUD_ROOT / "周末高手发言阅读看板.html"
-    target_url = f"{READER_CENTER_URL}?preset=weekend"
-    path.write_text(
-        render_reader_redirect_html(
-            title="周末高手发言阅读中心",
-            target_url=target_url,
-            helper=f"周末阅读入口已切到数据库直读模式，时间范围默认对应：{label}。",
-        ),
-        encoding="utf-8",
-    )
+    grouped: dict[str, dict[str, list]] = {}
+    for row in rows:
+        style = row["style"] or "未分类"
+        source = f"{row['site_name']} / {row['author_name']}"
+        grouped.setdefault(style, {}).setdefault(source, []).append(row)
+
+    nav_parts: list[str] = []
+    body_parts: list[str] = []
+    for style in sorted(grouped):
+        nav_parts.append(f'<div class="style-label">{html.escape(style)}</div>')
+        body_parts.append(f'<h2>{html.escape(style)}</h2>')
+        for source in sorted(grouped[style]):
+            records = grouped[style][source]
+            anchor = html_id("weekend", style, source)
+            nav_parts.append(f'<a href="#{anchor}">{html.escape(source)} ({len(records)})</a>')
+            body_parts.append(f'<section class="author-section" id="{anchor}">')
+            body_parts.append(f'<h3>{html.escape(source)} <span>{len(records)}</span></h3>')
+            for row in records:
+                content = (row["content"] or "").strip()
+                if not content:
+                    continue
+                title = clean_title(row["title"])
+                url = row["url"] or ""
+                body_parts.append('<article class="post">')
+                body_parts.append('<div class="post-meta">')
+                body_parts.append(f'<span>{html.escape(format_time(row["published_at"] or row["crawled_at"]))}</span>')
+                body_parts.append(f'<span>{html.escape(post_date(row))}</span>')
+                body_parts.append(f'<span>{html.escape(post_author_name(row))}</span>')
+                if title:
+                    body_parts.append(f'<span>{html.escape(title)}</span>')
+                if url:
+                    body_parts.append(f'<a href="{html.escape(url)}" target="_blank" rel="noopener">查看原帖</a>')
+                body_parts.append('</div>')
+                body_parts.append(f'<div class="content">{render_text_html(content)}</div>')
+                body_parts.append('</article>')
+            body_parts.append('</section>')
+
+    generated_at = datetime.now().isoformat(timespec="seconds")
+    text = f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>周末高手发言阅读看板</title>
+  <style>
+    :root {{
+      --bg: #f5f6f2;
+      --panel: #ffffff;
+      --ink: #20242a;
+      --muted: #68707a;
+      --line: #dfe3e6;
+      --accent: #1f6feb;
+      --accent-soft: #eaf2ff;
+      --green: #2f7d57;
+    }}
+    * {{ box-sizing: border-box; }}
+    html {{ scroll-behavior: smooth; }}
+    body {{
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
+      line-height: 1.72;
+    }}
+    .sidebar {{
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: 340px;
+      padding: 22px 18px;
+      overflow-y: auto;
+      background: #fbfcfa;
+      border-right: 1px solid var(--line);
+    }}
+    h1 {{ margin: 0 0 6px; font-size: 22px; line-height: 1.25; }}
+    .brand p {{ margin: 0 0 20px; color: var(--muted); font-size: 13px; }}
+    .nav-title {{ margin: 18px 0 10px; font-size: 13px; color: var(--muted); font-weight: 700; }}
+    .author-nav {{ display: grid; gap: 8px; }}
+    .author-nav a {{
+      display: block;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel);
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 14px;
+    }}
+    .author-nav a:hover {{ border-color: var(--accent); background: var(--accent-soft); color: #0b4fb3; }}
+    .style-label {{ margin: 10px 0 2px; color: var(--green); font-size: 12px; font-weight: 800; }}
+    main {{ margin-left: 340px; padding: 30px 44px 80px; }}
+    .reader {{ width: min(1240px, 100%); }}
+    .topline {{ margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }}
+    .topline span {{ display: block; font-size: 28px; font-weight: 800; }}
+    .topline em {{ color: var(--muted); font-style: normal; }}
+    h2 {{ margin: 28px 0 12px; font-size: 22px; }}
+    .author-section {{ scroll-margin-top: 18px; margin-bottom: 34px; }}
+    .author-section h3 {{ margin: 0 0 12px; font-size: 19px; }}
+    .author-section h3 span {{ margin-left: 6px; color: var(--muted); font-size: 13px; font-weight: 500; }}
+    .post {{ margin: 0 0 16px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }}
+    .post-meta {{ display: flex; flex-wrap: wrap; gap: 8px 14px; color: var(--muted); font-size: 13px; }}
+    .post-meta a {{ color: var(--accent); text-decoration: none; }}
+    .content {{ white-space: normal; font-size: 16px; }}
+    @media (max-width: 860px) {{
+      .sidebar {{ position: static; width: auto; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); }}
+      main {{ margin-left: 0; padding: 22px 16px 60px; }}
+      .topline span {{ font-size: 23px; }}
+    }}
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <h1>周末高手发言阅读看板</h1>
+      <p>{html.escape(generated_at)} · {html.escape(label)} · {len(rows)} records</p>
+    </div>
+    <div class="nav-title">作者导航</div>
+    <nav class="author-nav">{''.join(nav_parts)}</nav>
+  </aside>
+  <main>
+    <div class="reader">
+      <div class="topline"><span>周末包 {html.escape(label)}</span><em>周五、周六、周日合并阅读</em></div>
+      {''.join(body_parts)}
+    </div>
+  </main>
+</body>
+</html>
+"""
+    path.write_text(text, encoding="utf-8-sig")
     return path, len(rows), label
 
 
@@ -415,8 +1042,11 @@ def main() -> int:
     parser.add_argument("--retries", type=int, default=10)
     parser.add_argument("--retry-delay", type=float, default=3.0)
     parser.add_argument("--headed", action="store_true", help="显示浏览器窗口，便于排查登录状态。")
+    parser.add_argument("--enrich-details", action="store_true", help="兼容旧参数；NGA 详情补时现在默认开启。")
+    parser.add_argument("--no-enrich-details", action="store_true", help="关闭 NGA 详情页补时，直接使用抓取时间。")
+    parser.add_argument("--scan-active-threads", action="store_true", help="额外扫描 NGA 已命中主题的最后几页。")
     parser.add_argument("--limit", type=int, help="导出每个高手最近 N 条；不填则导出全部。")
-    parser.add_argument("--export-format", default="jsonl", choices=["md", "jsonl", "both"])
+    parser.add_argument("--export-format", default="both", choices=["md", "jsonl", "both"])
     parser.add_argument("--skip-crawl", action="store_true", help="只从数据库导出，不访问网站。")
     parser.add_argument("--skip-watchlist-import", action="store_true", help="不从云端 watch_targets.csv 同步跟踪清单。")
     args = parser.parse_args()
@@ -432,6 +1062,8 @@ def main() -> int:
         retries=args.retries,
         retry_delay=args.retry_delay,
         headed=args.headed,
+        no_enrich_details=args.no_enrich_details,
+        scan_active_threads=args.scan_active_threads,
     )
     summary: list[dict] = []
 
@@ -449,8 +1081,6 @@ def main() -> int:
         if args.skip_crawl:
             for target in targets:
                 pages = args.pages if args.pages is not None else int(target["crawl_pages"])
-                if args.min_pages > 0:
-                    pages = max(pages, args.min_pages)
                 summary.append(
                     {
                         "site": target["site_name"],
@@ -465,8 +1095,6 @@ def main() -> int:
         else:
             for target in targets:
                 pages = args.pages if args.pages is not None else int(target["crawl_pages"])
-                if args.min_pages > 0:
-                    pages = max(pages, args.min_pages)
                 print(f"开始收集：{target['site_name']} / {target['display_name']} / {target['style']}")
                 try:
                     found, new = crawl_target(conn, target, crawl_args)
@@ -487,28 +1115,20 @@ def main() -> int:
                     }
                 )
 
-    formats = ["md", "jsonl"] if args.export_format == "both" else [args.export_format]
-    exported_paths = export_all_posts(
-        output_root=OUTPUT_ROOT,
-        site_name=args.site,
-        formats=formats,
-        limit=args.limit,
-    )
-    report_path = write_report(summary, exported_paths)
-    index_path = write_export_index(exported_paths)
+    removed_legacy, cleanup_warnings = cleanup_legacy_cloud_exports()
     summary_paths = write_summary_files()
-    dashboard_path = write_reader_dashboard()
+    experts_json_path, experts_json_count = write_experts_json()
     weekend_summary_path, weekend_summary_count, weekend_label = write_weekend_summary_file()
-    weekend_dashboard_path, weekend_dashboard_count, _ = write_weekend_reader_dashboard()
 
     print(f"收集完成：{len(summary)} 个目标")
-    print(f"导出文件：{len(exported_paths)} 个")
-    print(f"汇总文件：{len(summary_paths)} 个")
-    print(f"阅读看板：{dashboard_path}")
+    if removed_legacy:
+        print(f"已清理旧导出：{removed_legacy} 项")
+    for warning in cleanup_warnings:
+        print(f"[WARN] 旧导出暂未清理：{warning}")
+    for summary_path in summary_paths:
+        print(f"Markdown 汇总：{summary_path}")
+    print(f"高手看板 JSON（最近 7 个自然日，{experts_json_count} 条）：{experts_json_path}")
     print(f"周末三日汇总（{weekend_label}，{weekend_summary_count} 条）：{weekend_summary_path}")
-    print(f"周末阅读看板（{weekend_dashboard_count} 条）：{weekend_dashboard_path}")
-    print(f"报告：{report_path}")
-    print(f"索引：{index_path}")
     return 0
 
 

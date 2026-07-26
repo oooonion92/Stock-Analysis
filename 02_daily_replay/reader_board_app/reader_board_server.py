@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sqlite3
 import webbrowser
 from datetime import date, datetime, timedelta
@@ -15,8 +16,6 @@ APP_ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = APP_ROOT / "data" / "forum_watchlist.sqlite"
 HOST = "127.0.0.1"
 PORT = 8769
-
-
 def parse_time(value: str | None) -> datetime | None:
     value = (value or "").strip()
     if not value:
@@ -26,12 +25,64 @@ def parse_time(value: str | None) -> datetime | None:
             return datetime.strptime(value, fmt).replace(tzinfo=None)
         except ValueError:
             continue
+    match = re.fullmatch(r"(\d{2})-(\d{2})\s+(\d{2}):(\d{2})", value)
+    if match:
+        month, day, hour, minute = map(int, match.groups())
+        return datetime(date.today().year, month, day, hour, minute)
     return None
+
+
+def parse_post_time(
+    published_at: str | None,
+    crawled_at: str | None,
+    allow_crawled_fallback: bool = False,
+) -> datetime | None:
+    published = (published_at or "").strip()
+    crawled = parse_time(crawled_at)
+    if published and crawled and published == (crawled_at or "").strip():
+        return crawled if allow_crawled_fallback else None
+    parsed = parse_time(published)
+    if parsed:
+        return parsed
+
+    base = crawled or datetime.now()
+    match = re.fullmatch(r"(今天|昨天|前天)\s+(\d{1,2}):(\d{2})", published)
+    if match:
+        day_text, hour, minute = match.groups()
+        offset = {"今天": 0, "昨天": 1, "前天": 2}[day_text]
+        target_day = base.date() - timedelta(days=offset)
+        return datetime.combine(target_day, datetime.min.time()).replace(hour=int(hour), minute=int(minute))
+
+    match = re.fullmatch(r"(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})", published)
+    if match:
+        month, day, hour, minute = map(int, match.groups())
+        return datetime(base.year, month, day, hour, minute)
+
+    return crawled if allow_crawled_fallback else None
+
+
+def post_day(published_at: str | None, crawled_at: str | None) -> str:
+    parsed = parse_post_time(published_at, crawled_at)
+    return parsed.date().isoformat() if parsed else ""
+
+
+def post_time_label(published_at: str | None, crawled_at: str | None) -> str:
+    parsed = parse_post_time(published_at, crawled_at)
+    if not parsed and crawled_at:
+        crawled = parse_time(crawled_at)
+        if crawled:
+            return "抓取 " + crawled.strftime("%Y-%m-%d %H:%M")
+    if not parsed:
+        return str(published_at or crawled_at or "")
+    if parsed.hour == 0 and parsed.minute == 0 and parsed.second == 0:
+        return parsed.date().isoformat()
+    return parsed.strftime("%Y-%m-%d %H:%M")
 
 
 def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    conn.create_function("post_day", 2, post_day)
     init_marks_db(conn)
     return conn
 
@@ -42,7 +93,16 @@ def now_iso() -> str:
 
 def latest_post_date(conn: sqlite3.Connection) -> date:
     latest = conn.execute(
-        "SELECT MAX(substr(COALESCE(NULLIF(published_at, ''), crawled_at), 1, 10)) AS latest FROM posts"
+        "SELECT MAX(post_day(published_at, crawled_at)) AS latest FROM posts"
+    ).fetchone()["latest"]
+    if latest:
+        return date.fromisoformat(str(latest))
+    return date.today()
+
+
+def latest_crawl_date(conn: sqlite3.Connection) -> date:
+    latest = conn.execute(
+        "SELECT MAX(substr(crawled_at, 1, 10)) AS latest FROM posts"
     ).fetchone()["latest"]
     if latest:
         return date.fromisoformat(str(latest))
@@ -51,7 +111,7 @@ def latest_post_date(conn: sqlite3.Connection) -> date:
 
 def min_post_date(conn: sqlite3.Connection) -> str:
     earliest = conn.execute(
-        "SELECT MIN(substr(COALESCE(NULLIF(published_at, ''), crawled_at), 1, 10)) AS earliest FROM posts"
+        "SELECT MIN(post_day(published_at, crawled_at)) AS earliest FROM posts"
     ).fetchone()["earliest"]
     return str(earliest or "")
 
@@ -64,8 +124,8 @@ def resolve_date_range(
 ) -> tuple[str, str, str]:
     latest = latest_post_date(conn)
     if preset == "today":
-        begin = finish = latest
-        label = "最新一天"
+        begin = finish = date.today()
+        label = "今天"
     elif preset == "recent7":
         begin = latest - timedelta(days=6)
         finish = latest
@@ -181,12 +241,35 @@ def row_author(row: sqlite3.Row) -> str:
     return str(raw.get("author") or row["target_name"] or "")
 
 
+def reply_chain_from_raw(raw_json: str | None) -> list[dict[str, str]]:
+    """Return only well-formed quoted context; the post body stays separate."""
+    try:
+        payload = json.loads(raw_json or "{}")
+    except json.JSONDecodeError:
+        return []
+    chain = payload.get("replyChain")
+    if not isinstance(chain, list):
+        return []
+
+    result: list[dict[str, str]] = []
+    for item in chain:
+        if not isinstance(item, dict):
+            continue
+        body = str(item.get("body") or "").strip()
+        if not body:
+            continue
+        result.append(
+            {
+                "author": str(item.get("author") or "").strip(),
+                "time": str(item.get("time") or "").strip(),
+                "body": body,
+            }
+        )
+    return result
+
+
 def post_date(row: sqlite3.Row) -> str:
-    parsed = parse_time(row["published_at"] or row["crawled_at"])
-    if parsed:
-        return parsed.date().isoformat()
-    value = str(row["published_at"] or row["crawled_at"] or "")
-    return value[:10] if len(value) >= 10 else "未知日期"
+    return post_day(row["published_at"], row["crawled_at"]) or "未知日期"
 
 
 def get_options() -> dict:
@@ -224,6 +307,7 @@ def get_options() -> dict:
         "styles": styles,
         "authors": authors,
         "latest_date": latest,
+        "today_date": date.today().isoformat(),
         "earliest_date": earliest,
         "marked_count": marked_count,
         "db_path": str(DB_PATH),
@@ -256,7 +340,8 @@ def get_posts(params: dict[str, list[str]]) -> dict:
         ):
             clauses.append("posts.title NOT LIKE ? AND posts.content NOT LIKE ?")
             values.extend([f"%{bad_text}%", f"%{bad_text}%"])
-        clauses.append("substr(COALESCE(NULLIF(posts.published_at, ''), posts.crawled_at), 1, 10) BETWEEN ? AND ?")
+        date_expr = "post_day(posts.published_at, posts.crawled_at)"
+        clauses.append(f"{date_expr} BETWEEN ? AND ?")
         values.extend([start_date, end_date])
         if site:
             clauses.append("sites.name = ?")
@@ -271,6 +356,31 @@ def get_posts(params: dict[str, list[str]]) -> dict:
         if query:
             clauses.append("(posts.title LIKE ? OR posts.content LIKE ?)")
             values.extend([f"%{query}%", f"%{query}%"])
+
+        if preset == "today":
+            order_clause = """
+                posts.target_id ASC,
+                CASE
+                    WHEN sites.site_type = 'nga'
+                    THEN CAST(COALESCE(NULLIF(json_extract(posts.raw_json, '$.page'), ''), '1') AS INTEGER)
+                    ELSE 0
+                END ASC,
+                CASE
+                    WHEN sites.site_type = 'nga' THEN posts.id
+                    ELSE 0
+                END ASC,
+                CASE
+                    WHEN sites.site_type <> 'nga' THEN COALESCE(NULLIF(posts.published_at, ''), posts.crawled_at)
+                    ELSE ''
+                END DESC,
+                posts.id ASC
+            """
+        else:
+            order_clause = f"""
+                {date_expr} DESC,
+                COALESCE(NULLIF(posts.published_at, ''), posts.crawled_at) DESC,
+                posts.id ASC
+            """
 
         sql = f"""
             SELECT
@@ -290,7 +400,7 @@ def get_posts(params: dict[str, list[str]]) -> dict:
             JOIN watch_targets ON watch_targets.id = posts.target_id
             LEFT JOIN post_marks ON post_marks.post_id = posts.id
             WHERE {' AND '.join(clauses)}
-            ORDER BY COALESCE(NULLIF(posts.published_at, ''), posts.crawled_at) DESC, posts.id DESC
+            ORDER BY {order_clause}
             LIMIT ?
         """
         values.append(str(limit))
@@ -306,7 +416,7 @@ def get_posts(params: dict[str, list[str]]) -> dict:
         mark = marks.get(int(row["id"]), mark_from_row(None))
         if mark.get("useful"):
             useful_count += 1
-        source = f"{row['site_name']} / {row_author(row)}"
+        source = f"{row['site_name']} / {row['target_name']}"
         author_counts[source] = author_counts.get(source, 0) + 1
         site_counts[row["site_name"]] = site_counts.get(row["site_name"], 0) + 1
         style_name = row["style"] or "未分类"
@@ -319,9 +429,10 @@ def get_posts(params: dict[str, list[str]]) -> dict:
                 "author": row_author(row),
                 "source": source,
                 "date": post_date(row),
-                "published_at": row["published_at"] or row["crawled_at"],
+                "published_at": post_time_label(row["published_at"], row["crawled_at"]),
                 "title": row["title"] or "",
                 "content": row["content"] or "",
+                "reply_chain": reply_chain_from_raw(row["raw_json"]),
                 "url": row["url"] or "",
                 "mark": mark,
             }
@@ -378,6 +489,11 @@ HTML = r"""<!doctype html>
     .meta a{color:var(--accent);text-decoration:none}
     .title{font-weight:800;color:#12392b;margin:4px 0 8px}
     .content{white-space:pre-wrap;font-size:16px}
+    .reply-context{margin:12px 0;padding:10px 12px;border-left:3px solid #aab7c4;background:#f7f9fb;color:#506070}
+    .reply-context-title{margin-bottom:6px;font-size:12px;font-weight:800;color:#718096}
+    .reply-item{white-space:pre-wrap;font-size:13px;line-height:1.65}
+    .reply-item + .reply-item{margin-top:8px;padding-top:8px;border-top:1px solid #e2e8ef}
+    .reply-author{font-weight:700;color:#556575}
     .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
     .actions button{width:auto;height:30px;font-size:12px;padding:0 10px}
     .mark-button{border-color:#dde3ea;background:#f8fafc;color:#8a96a3}
@@ -397,7 +513,7 @@ HTML = r"""<!doctype html>
   <div class="sub" id="sub">读取本地数据库中...</div>
   <div class="controls">
     <div class="preset-row">
-      <button class="preset active" data-preset="today">最新一天</button>
+      <button class="preset active" data-preset="today">今天</button>
       <button class="preset" data-preset="recent7">最近7天</button>
       <button class="preset" data-preset="weekend">最近3天</button>
       <button class="preset" data-preset="all">全部</button>
@@ -440,6 +556,15 @@ function esc(s){
   }[m]));
 }
 function markOf(id){ return state.marks[id] || {}; }
+function renderReplyChain(chain){
+  if (!Array.isArray(chain) || !chain.length) return '';
+  const items = chain.map(item => {
+    const author = item.author || '\u5f15\u7528\u5185\u5bb9';
+    const label = item.time ? `${author} | ${item.time}` : author;
+    return `<div class="reply-item"><span class="reply-author">${esc(label)}</span><br>${esc(item.body || '')}</div>`;
+  }).join('');
+  return `<section class="reply-context"><div class="reply-context-title">\u5f15\u7528\u4e0a\u4e0b\u6587</div>${items}</section>`;
+}
 function setPreset(preset){
   state.preset = preset;
   document.querySelectorAll('.preset').forEach(btn => btn.classList.toggle('active', btn.dataset.preset === preset));
@@ -459,8 +584,8 @@ async function loadOptions(){
   const data = await fetch('/api/options').then(r => r.json());
   state.options = data;
   $('sub').textContent = `最新数据日：${data.latest_date || '-'} | ${data.db_path}`;
-  $('start').value = data.latest_date || '';
-  $('end').value = data.latest_date || '';
+  $('start').value = data.today_date || data.latest_date || '';
+  $('end').value = data.today_date || data.latest_date || '';
   data.sites.forEach(v => $('site').insertAdjacentHTML('beforeend', `<option value="${esc(v)}">${esc(v)}</option>`));
   data.styles.forEach(v => $('style').insertAdjacentHTML('beforeend', `<option value="${esc(v)}">${esc(v)}</option>`));
 }
@@ -489,7 +614,7 @@ async function loadPosts(){
   renderPosts();
 }
 function renderNav(counts){
-  $('authorNav').innerHTML = Object.entries(counts).sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]))
+  $('authorNav').innerHTML = Object.entries(counts)
     .map(([name,count]) => `<a href="#${esc(anchor(name))}">${esc(name)} (${count})</a>`).join('');
 }
 function anchor(name){ return 'a-' + name.replace(/[^\w\u4e00-\u9fa5]+/g,'-'); }
@@ -500,27 +625,27 @@ function renderPosts(){
     root.innerHTML = '<div class="empty">当前条件下没有发言。可以切到最近7天或全部，再试一次。</div>';
     return;
   }
-  const groups = new Map();
+  const seenSources = new Set();
+  let previousSource = '';
   for (const p of state.posts) {
-    if (!groups.has(p.source)) groups.set(p.source, []);
-    groups.get(p.source).push(p);
-  }
-  const orderedGroups = Array.from(groups.entries()).sort((a,b)=>b[1].length-a[1].length || a[0].localeCompare(b[0]));
-  for (const [source, posts] of orderedGroups) {
-    root.insertAdjacentHTML('beforeend', `<h3 class="group" id="${esc(anchor(source))}">${esc(source)}</h3>`);
-    for (const p of posts) {
+    if (p.source !== previousSource) {
+      const idAttr = seenSources.has(p.source) ? '' : ` id="${esc(anchor(p.source))}"`;
+      root.insertAdjacentHTML('beforeend', `<h3 class="group"${idAttr}>${esc(p.source)}</h3>`);
+      seenSources.add(p.source);
+      previousSource = p.source;
+    }
       const m = markOf(p.id);
       const cls = m.noise ? 'post dim' : 'post';
       root.insertAdjacentHTML('beforeend', `<article class="${cls}">
-        <div class="meta"><span>${esc(p.published_at)}</span><span>${esc(p.date)}</span><span>${esc(p.site)}</span><span>${esc(p.style)}</span><span>${esc(p.author)}</span>${p.url ? `<a target="_blank" rel="noopener" href="${esc(p.url)}">查看原帖</a>`:''}</div>
+        <div class="meta"><span>${esc(p.published_at)}</span><span>${esc(p.site)}</span><span>${esc(p.style)}</span><span>${esc(p.author)}</span>${p.url ? `<a target="_blank" rel="noopener" href="${esc(p.url)}">查看原帖</a>`:''}</div>
         ${p.title ? `<div class="title">${esc(p.title)}</div>`:''}
+        ${renderReplyChain(p.reply_chain)}
         <div class="content">${esc(p.content)}</div>
         <div class="actions">
           <button onclick="setMark(${p.id}, 'useful')" class="${m.useful?'active-tag useful':'mark-button'}">有用</button>
           <button onclick="setMark(${p.id}, 'noise')" class="${m.noise?'active-tag noise':'mark-button'}">噪音</button>
         </div>
       </article>`);
-    }
   }
 }
 document.querySelectorAll('.preset').forEach(btn => btn.addEventListener('click', () => {

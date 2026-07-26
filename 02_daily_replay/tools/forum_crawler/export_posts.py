@@ -8,6 +8,7 @@ from pathlib import Path
 
 from forum_db import ROOT, connect, get_site, list_targets, posts_for_target
 from forum_paths import CLOUD_AUTHORS_ROOT, CLOUD_RAW_ROOT
+from reply_structure import stored_reply_structure, structured_markdown_lines
 
 
 OUTPUT_ROOT = CLOUD_AUTHORS_ROOT
@@ -59,12 +60,11 @@ def render_markdown(rows, site_name: str, target_name: str, user_id: str) -> str
                 "",
                 f"> {metadata_line(row)}",
                 "",
-                content,
-                "",
-                "---",
-                "",
             ]
         )
+        structure = stored_reply_structure(row["raw_json"], content)
+        lines.extend(structured_markdown_lines(content, target_name, structure))
+        lines.extend(["", "---", ""])
     return "\n".join(lines).strip() + "\n"
 
 

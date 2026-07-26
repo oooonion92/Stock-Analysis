@@ -7,10 +7,17 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
-from playwright.sync_api import Page, sync_playwright
+from playwright.sync_api import BrowserContext, Page
+from browser_session import playwright_for_context
+from reply_structure import (
+    apply_reply_structure,
+    parse_nga_content,
+    stored_reply_structure,
+    structured_markdown_lines,
+)
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -132,7 +139,19 @@ def nga_search_url(author_id: str, page: int, output_json: bool = True) -> str:
     return "https://bbs.nga.cn/thread.php?" + urlencode(params)
 
 
-def nga_author_page_url(author_id: str, page: int) -> str:
+def add_page_to_url(url: str, page: int) -> str:
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["page"] = str(page)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
+def nga_author_page_url(author_id: str, page: int, profile_url: str = "") -> str:
+    profile_url = (profile_url or "").strip()
+    if profile_url:
+        if page == 1:
+            return profile_url
+        return add_page_to_url(profile_url, page)
     params = {
         "searchpost": "1",
         "authorid": author_id,
@@ -178,7 +197,8 @@ def normalize_candidate(item: dict[str, Any], author_id: str, author_name: str, 
         or ""
     )
     title = item.get("subject") or item.get("title") or item.get("thread_subject") or ""
-    cleaned_content = strip_html(content)
+    structure = parse_nga_content(str(content))
+    cleaned_content = structure["body"]
     cleaned_title = strip_html(title)
 
     if not cleaned_content and not cleaned_title:
@@ -199,7 +219,7 @@ def normalize_candidate(item: dict[str, Any], author_id: str, author_name: str, 
     pid = str(item.get("pid") or item.get("post_id") or "")
     record_id = f"nga:{tid}:{pid}" if tid or pid else f"nga:{author_id}:page{page}:{hash(cleaned_content)}"
 
-    return {
+    record = {
         "id": record_id,
         "site": "NGA",
         "author": item_author_name or author_name,
@@ -214,6 +234,7 @@ def normalize_candidate(item: dict[str, Any], author_id: str, author_name: str, 
         "source_search_url": nga_search_url(author_id, page, output_json=False),
         "crawl_time": now_iso(),
     }
+    return apply_reply_structure(record, structure)
 
 
 def extract_records(payload: Any, author_id: str, author_name: str, page: int) -> list[dict[str, Any]]:
@@ -263,13 +284,13 @@ def extract_html_records(html: str, author_id: str, author_name: str, page: int)
             else:
                 created_at = timestamp
 
-        content = strip_html(content_node.decode_contents())
+        structure = parse_nga_content(content_node.decode_contents())
+        content = structure["body"]
         record_id = f"nga:{tid}:{pid}"
         if record_id in seen:
             continue
         seen.add(record_id)
-        records.append(
-            {
+        record = {
                 "id": record_id,
                 "site": "NGA",
                 "author": author,
@@ -285,7 +306,7 @@ def extract_html_records(html: str, author_id: str, author_name: str, page: int)
                 "source_search_url": nga_author_page_url(author_id, page),
                 "crawl_time": now_iso(),
             }
-        )
+        records.append(apply_reply_structure(record, structure))
 
     return records
 
@@ -300,6 +321,24 @@ def extract_detail_post_date(html: str, pid: str) -> str:
         return ""
     date_node = row.select_one("span[id^='postdate']")
     return strip_html(date_node.get_text("\n") if date_node else "")
+
+
+def extract_detail_post_structure_from_page(page_obj: Page, pid: str) -> dict[str, Any] | None:
+    anchor = page_obj.locator(f"#pid{pid}Anchor")
+    if anchor.count() == 0:
+        return None
+    raw_html = anchor.first.evaluate(
+        """
+        (element) => {
+            const row = element.closest('tr');
+            const content = row ? row.querySelector('p.postcontent') : null;
+            return content ? content.innerHTML : null;
+        }
+        """
+    )
+    if raw_html is None:
+        return None
+    return parse_nga_content(str(raw_html))
 
 
 def max_thread_page(html: str) -> int:
@@ -343,13 +382,15 @@ def extract_thread_author_records(
 
         date_node = row.select_one("span[id^='postdate']")
         published_at = strip_html(date_node.get_text("\n") if date_node else "")
-        content_node = row.select_one("span[id^='postcontent']")
-        content = strip_html(content_node.decode_contents() if content_node else row.decode_contents())
+        content_node = row.select_one("p.postcontent")
+        if content_node is None:
+            content_node = row.select_one("span[id^='postcontent']")
+        structure = parse_nga_content(content_node.decode_contents() if content_node else row.decode_contents())
+        content = structure["body"]
         if not content:
             continue
 
-        records.append(
-            {
+        record = {
                 "id": f"nga:{tid}:{pid}",
                 "site": "NGA",
                 "author": author or author_name,
@@ -364,7 +405,7 @@ def extract_thread_author_records(
                 "source_search_url": source_url,
                 "crawl_time": now_iso(),
             }
-        )
+        records.append(apply_reply_structure(record, structure))
     return records
 
 
@@ -394,6 +435,7 @@ def scan_active_threads_for_author(
             page_num=0,
             retries=retries,
             retry_delay=retry_delay,
+            label=f"主题 {tid} 末页",
         )
         if not first_html:
             continue
@@ -409,6 +451,7 @@ def scan_active_threads_for_author(
                     page_num=page_no,
                     retries=retries,
                     retry_delay=retry_delay,
+                    label=f"主题 {tid} 第 {page_no} 页",
                 )
             if not html:
                 continue
@@ -430,24 +473,48 @@ def enrich_records_with_detail_dates(
     records: list[dict[str, Any]],
     retries: int,
     retry_delay: float,
-) -> None:
+    fallback_time: str,
+) -> bool:
     for index, record in enumerate(records, 1):
         tid = str(record.get("thread_id") or "")
         pid = str(record.get("post_id") or "")
+        record["_detail_ok"] = False
         if not tid or not pid:
-            continue
+            for fallback in records[index - 1 :]:
+                fallback["published_at"] = fallback_time
+                fallback["crawl_time"] = fallback_time
+                fallback["_detail_ok"] = False
+            print(f"[WARN] 详情补时失败：第 {index} 条缺少 tid/pid，停止当前作者后续详情补时")
+            return False
         html = load_html_with_retry(
             page_obj=page_obj,
             url=read_post_url(tid, pid),
             page_num=index,
-            retries=retries,
+            retries=min(retries, 2),
             retry_delay=retry_delay,
+            label=f"详情第 {index} 条 tid={tid} pid={pid}",
         )
         if not html:
-            continue
+            for fallback in records[index - 1 :]:
+                fallback["published_at"] = fallback_time
+                fallback["crawl_time"] = fallback_time
+                fallback["_detail_ok"] = False
+            print(f"[WARN] 详情补时失败：第 {index} 条详情页不可用，停止当前作者后续详情补时")
+            return False
         detail_date = extract_detail_post_date(html, pid)
-        if detail_date:
-            record["published_at"] = detail_date
+        if not detail_date:
+            for fallback in records[index - 1 :]:
+                fallback["published_at"] = fallback_time
+                fallback["crawl_time"] = fallback_time
+                fallback["_detail_ok"] = False
+            print(f"[WARN] 详情补时失败：第 {index} 条未提取到回复时间，停止当前作者后续详情补时")
+            return False
+        record["published_at"] = detail_date
+        record["_detail_ok"] = True
+        structure = extract_detail_post_structure_from_page(page_obj, pid)
+        if structure is not None:
+            apply_reply_structure(record, structure)
+    return True
 
 
 def load_html_with_retry(
@@ -456,21 +523,34 @@ def load_html_with_retry(
     page_num: int,
     retries: int,
     retry_delay: float,
+    label: str | None = None,
 ) -> str | None:
+    page_label = label or f"第 {page_num} 页"
     for attempt in range(1, retries + 2):
         response = page_obj.goto(url, wait_until="domcontentloaded")
         if response is None:
-            print(f"[WARN] 第 {page_num} 页第 {attempt} 次无响应")
+            print(f"[WARN] {page_label} 第 {attempt} 次无响应")
             time.sleep(retry_delay)
             continue
 
-        raw = response.body()
-        if is_server_busy(raw):
+        # Response.body() can fail after Chromium releases the CDP response
+        # resource, even though the navigated page remains readable.
+        try:
+            html = page_obj.content()
+        except Exception as exc:
             if attempt <= retries:
-                print(f"[WARN] 第 {page_num} 页服务器忙，{retry_delay:g} 秒后重试 {attempt}/{retries}")
+                print(f"[WARN] {page_label}: unable to read loaded page ({exc}); retry {attempt}/{retries}")
                 time.sleep(retry_delay)
                 continue
-            print(f"[WARN] 第 {page_num} 页多次服务器忙，跳过")
+            print(f"[WARN] {page_label}: unable to read loaded page after retries; skipped")
+            return None
+        raw = html.encode("utf-8", errors="replace")
+        if is_server_busy(raw):
+            if attempt <= retries:
+                print(f"[WARN] {page_label} 服务器忙，{retry_delay:g} 秒后重试 {attempt}/{retries}")
+                time.sleep(retry_delay)
+                continue
+            print(f"[WARN] {page_label} 多次服务器忙，跳过")
             return None
 
         body_text = ""
@@ -480,17 +560,17 @@ def load_html_with_retry(
             body_text = text_preview(raw)
 
         if is_login_required(raw) or "你必须登录" in body_text:
-            raise SystemExit(f"第 {page_num} 页似乎未登录或被拦截，请重新运行 login_nga.py。")
+            raise SystemExit(f"{page_label} 似乎未登录或被拦截，请重新运行 login_nga.py。")
 
         if "ERROR:2048" in body_text or "服务器忙,请稍后重试" in body_text:
             if attempt <= retries:
-                print(f"[WARN] 第 {page_num} 页服务器忙，{retry_delay:g} 秒后重试 {attempt}/{retries}")
+                print(f"[WARN] {page_label} 服务器忙，{retry_delay:g} 秒后重试 {attempt}/{retries}")
                 time.sleep(retry_delay)
                 continue
-            print(f"[WARN] 第 {page_num} 页多次服务器忙，跳过")
+            print(f"[WARN] {page_label} 多次服务器忙，跳过")
             return None
 
-        return page_obj.content()
+        return html
 
     return None
 
@@ -505,6 +585,7 @@ def render_markdown(records: list[dict[str, Any]], author_name: str, author_id: 
         "",
     ]
     for index, record in enumerate(records, 1):
+        content = record.get("content", "").strip()
         lines.extend(
             [
                 f"## {index}. {record.get('title') or '(无标题)'}",
@@ -512,10 +593,11 @@ def render_markdown(records: list[dict[str, Any]], author_name: str, author_id: 
                 f"- 时间：{record.get('published_at') or '未知'}",
                 f"- 链接：{record.get('url') or record.get('source_search_url')}",
                 "",
-                record.get("content", "").strip(),
-                "",
             ]
         )
+        structure = stored_reply_structure(record, content)
+        lines.extend(structured_markdown_lines(content, str(record.get("author") or author_name), structure))
+        lines.append("")
     return "\n".join(lines).strip() + "\n"
 
 
@@ -528,6 +610,10 @@ def crawl(
     retry_delay: float,
     headless: bool,
     exists_checker: Callable[[dict[str, Any]], bool] | None = None,
+    browser_context: BrowserContext | None = None,
+    enrich_details: bool = True,
+    scan_active_threads: bool = False,
+    profile_url: str = "",
 ) -> list[dict[str, Any]]:
     if not PROFILE_DIR.exists():
         raise SystemExit("还没有浏览器登录资料夹。请先运行 login_nga.py 并手动登录。")
@@ -535,8 +621,10 @@ def crawl(
     executable_path = find_browser()
     all_records: list[dict[str, Any]] = []
     seen: set[str] = set()
+    target_crawl_time = now_iso()
+    detail_enrichment_active = enrich_details
 
-    with sync_playwright() as p:
+    with playwright_for_context(browser_context) as (p, owns_context):
         context = p.chromium.launch_persistent_context(
             user_data_dir=str(PROFILE_DIR),
             executable_path=executable_path,
@@ -547,13 +635,14 @@ def crawl(
         page_obj = context.pages[0] if context.pages else context.new_page()
 
         for page_num in range(1, pages + 1):
-            url = nga_author_page_url(author_id, page_num)
+            url = nga_author_page_url(author_id, page_num, profile_url=profile_url)
             html = load_html_with_retry(
                 page_obj=page_obj,
                 url=url,
                 page_num=page_num,
                 retries=retries,
                 retry_delay=retry_delay,
+                label=f"作者页第 {page_num} 页",
             )
             if html is None:
                 continue
@@ -563,26 +652,40 @@ def crawl(
                 print(f"第 {page_num} 页：{len(records)} 条候选发言均已存在，停止继续翻页")
                 break
 
-            enrich_records_with_detail_dates(page_obj, records, retries=retries, retry_delay=retry_delay)
-            records.extend(
-                scan_active_threads_for_author(
-                    page_obj=page_obj,
-                    seed_records=records,
-                    author_id=author_id,
-                    author_name=author_name,
+            if detail_enrichment_active:
+                detail_enrichment_active = enrich_records_with_detail_dates(
+                    page_obj,
+                    records,
                     retries=retries,
                     retry_delay=retry_delay,
+                    fallback_time=target_crawl_time,
                 )
-            )
+            else:
+                for record in records:
+                    record["published_at"] = target_crawl_time
+                    record["crawl_time"] = target_crawl_time
+            if scan_active_threads:
+                records.extend(
+                    scan_active_threads_for_author(
+                        page_obj=page_obj,
+                        seed_records=records,
+                        author_id=author_id,
+                        author_name=author_name,
+                        retries=min(retries, 2),
+                        retry_delay=retry_delay,
+                    )
+                )
             print(f"第 {page_num} 页：提取 {len(records)} 条候选发言")
             for record in records:
+                record.pop("_detail_ok", None)
                 if record["id"] in seen:
                     continue
                 seen.add(record["id"])
                 all_records.append(record)
             time.sleep(delay)
 
-        context.close()
+        if owns_context:
+            context.close()
 
     return all_records
 
@@ -591,11 +694,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="抓取 NGA 指定作者的回帖发言。")
     parser.add_argument("--author-id", default=DEFAULT_AUTHOR_ID)
     parser.add_argument("--author-name", default=DEFAULT_AUTHOR_NAME)
+    parser.add_argument("--profile-url", default="")
     parser.add_argument("--pages", type=int, default=3)
     parser.add_argument("--delay", type=float, default=2.0)
     parser.add_argument("--retries", type=int, default=5)
     parser.add_argument("--retry-delay", type=float, default=3.0)
     parser.add_argument("--headed", action="store_true", help="显示浏览器窗口，便于排查登录状态。")
+    parser.add_argument("--enrich-details", action="store_true", help="兼容旧参数；详情补时现在默认开启。")
+    parser.add_argument("--no-enrich-details", action="store_true", help="关闭详情页补时，直接使用抓取时间。")
+    parser.add_argument("--scan-active-threads", action="store_true", help="额外扫描已命中主题的最后几页。")
     args = parser.parse_args()
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -607,6 +714,9 @@ def main() -> int:
         retries=args.retries,
         retry_delay=args.retry_delay,
         headless=not args.headed,
+        enrich_details=not args.no_enrich_details,
+        scan_active_threads=args.scan_active_threads,
+        profile_url=args.profile_url,
     )
 
     jsonl_path = OUTPUT_DIR / f"author_{args.author_id}_replies.jsonl"

@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "status": "annotation_pending",
+  "cases": [
+    {
+      "id": "sh000001-20260323-low-forward",
+      "symbol": "sh000001",
+      "start": "2026-03-23T09:35:00",
+      "end": "2026-07-17T15:00:00",
+      "focus": ["pivot", "stroke", "segment", "center_expansion", "signal_level"]
+    },
+    {
+      "id": "sh000001-20260625-structure",
+      "symbol": "sh000001",
+      "start": "2026-06-25T09:35:00",
+      "end": "2026-07-17T15:00:00",
+      "focus": ["center_extension", "center_upgrade", "3S", "signal_deduplication"]
+    },
+    {
+      "id": "sz002463-20260520-3B",
+      "symbol": "sz002463",
+      "start": "2026-05-18T09:35:00",
+      "end": "2026-05-29T15:00:00",
+      "focus": ["3B_event_at", "3B_confirmed_at", "30m_down_stroke"]
+    },
+    {
+      "id": "synthetic-prefix-consistency",
+      "symbol": "synthetic",
+      "focus": ["inclusion", "pivot_confirmation", "immutable_prefix"]
+    }
+  ]
+}

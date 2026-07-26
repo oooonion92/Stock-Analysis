@@ -12,7 +12,9 @@ from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
 from crawl_nga_author_replies import find_browser, strip_html
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import BrowserContext
+from browser_session import playwright_for_context
+from reply_structure import apply_reply_structure, parse_hupu_content
 
 
 PROFILE_DIR = Path(__file__).resolve().parent / "browser_profile"
@@ -73,6 +75,7 @@ def parse_items(html: str, profile_url: str, user_id: str, author_name: str) -> 
             continue
 
         quote_node = item.select_one(".hasImgContent")
+        structure = parse_hupu_content(reply_node, quote_node)
         quote = clean_text(quote_node.get_text("\n")) if quote_node else ""
         title_node = item.select_one(".shoImgWarp a")
         title = clean_text(title_node.get_text(" ")) if title_node else ""
@@ -83,14 +86,7 @@ def parse_items(html: str, profile_url: str, user_id: str, author_name: str) -> 
         published_at = match.group(1) if match else ""
         post_id = item_hash(user_id, published_at, content)
 
-        full_content = content
-        if quote:
-            full_content = f"{content}\n\n引用：{quote}"
-        if topic:
-            full_content = f"{full_content}\n\n来自：{topic}"
-
-        records.append(
-            {
+        record = {
                 "id": f"hupu:{user_id}:{post_id}",
                 "site": "虎扑",
                 "author": author,
@@ -98,7 +94,7 @@ def parse_items(html: str, profile_url: str, user_id: str, author_name: str) -> 
                 "thread_id": title,
                 "post_id": f"{user_id}:{post_id}",
                 "title": title or "虎扑回帖",
-                "content": full_content,
+                "content": structure["body"],
                 "published_at": published_at,
                 "url": f"{profile_url}#reply-{post_id}",
                 "source_search_url": profile_url,
@@ -111,7 +107,7 @@ def parse_items(html: str, profile_url: str, user_id: str, author_name: str) -> 
                     "block_text": block_text,
                 },
             }
-        )
+        records.append(apply_reply_structure(record, structure))
 
     return records
 
@@ -135,12 +131,13 @@ def crawl(
     delay: float,
     headless: bool,
     exists_checker: Callable[[dict[str, Any]], bool] | None = None,
+    browser_context: BrowserContext | None = None,
 ) -> list[dict[str, Any]]:
     user_id = extract_user_id(user_id_or_url)
     profile_url = normalize_profile_url(user_id_or_url)
     records: list[dict[str, Any]] = []
 
-    with sync_playwright() as p:
+    with playwright_for_context(browser_context) as (p, owns_context):
         context = p.chromium.launch_persistent_context(
             user_data_dir=str(PROFILE_DIR),
             executable_path=find_browser(),
@@ -164,7 +161,8 @@ def crawl(
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             page.wait_for_timeout(int(delay * 1000))
             time.sleep(delay)
-        context.close()
+        if owns_context:
+            context.close()
 
     records = dedupe(records)
     print(f"虎扑用户 {user_id}：提取 {len(records)} 条候选回帖")

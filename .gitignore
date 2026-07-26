@@ -18,6 +18,7 @@ snapshots/
 02_daily_replay/data/*.sqlite
 02_daily_replay/data/market_history_cache.json
 02_daily_replay/plans/watchlist_config.json
+02_daily_replay/plans/watchlist_config_*.json
 02_daily_replay/plans/rollback_snapshots/
 02_daily_replay/plans/*_chanlun_dashboard.html
 02_daily_replay/plans/*_chanlun_replay_plan.json
@@ -26,6 +27,7 @@ snapshots/
 02_daily_replay/plans/*_index_judgment.json
 02_daily_replay/plans/*_stock_judgments.json
 02_daily_replay/tools/forum_crawler/browser_profile/
+02_daily_replay/tools/forum_crawler/*.local-backup
 02_daily_replay/source_notes/crawled_forum_posts/
 02_daily_replay/data/*.sqlite-journal
 02_daily_replay/data/*.sqlite-wal
@@ -33,6 +35,9 @@ snapshots/
 
 # Local scratch output
 .codex_tmp_reader/
+
+# Local experiments and compiled plugin output
+tdx_plugin_lab/build/
 
 # Generated stock-analysis test output
 03_stock_deep_analysis/china-stock-deep-analysis-local/scripts/stock_work/test*/

@@ -1,0 +1,2 @@
+# Keep the pinned upstream byte-for-byte while treating CRLF as a valid line ending.
+backend/vendor/chanpy/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

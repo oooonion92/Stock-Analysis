@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 
+from playwright.sync_api import BrowserContext
 from crawl_nga_author_replies import crawl as crawl_nga_replies
 from crawl_hupu_user_replies import crawl as crawl_hupu_replies
 from crawl_xueqiu_user_posts import crawl as crawl_xueqiu_posts
@@ -16,7 +17,7 @@ from forum_db import (
 )
 
 
-def crawl_target(conn, target, args) -> tuple[int, int]:
+def crawl_target(conn, target, args, browser_context: BrowserContext | None = None) -> tuple[int, int]:
     site_type = target["site_type"]
     target_type = target["target_type"]
     pages = args.pages if args.pages is not None else int(target["crawl_pages"])
@@ -39,6 +40,10 @@ def crawl_target(conn, target, args) -> tuple[int, int]:
                 retry_delay=args.retry_delay,
                 headless=not args.headed,
                 exists_checker=exists_checker,
+                browser_context=browser_context,
+                enrich_details=not bool(getattr(args, "no_enrich_details", False)),
+                scan_active_threads=bool(getattr(args, "scan_active_threads", False)),
+                profile_url=str(target["profile_url"] or ""),
             )
         elif site_type == "xueqiu" and target_type in ("feed", "posts", "both", "replies"):
             records = crawl_xueqiu_posts(
@@ -48,6 +53,7 @@ def crawl_target(conn, target, args) -> tuple[int, int]:
                 delay=args.delay,
                 headless=not args.headed,
                 exists_checker=exists_checker,
+                browser_context=browser_context,
             )
         elif site_type == "hupu" and target_type in ("replies", "both"):
             records = crawl_hupu_replies(
@@ -57,6 +63,7 @@ def crawl_target(conn, target, args) -> tuple[int, int]:
                 delay=args.delay,
                 headless=not args.headed,
                 exists_checker=exists_checker,
+                browser_context=browser_context,
             )
         else:
             raise RuntimeError(f"暂不支持的站点/目标类型：{site_type}/{target_type}")
@@ -80,6 +87,9 @@ def main() -> int:
     parser.add_argument("--retries", type=int, default=5)
     parser.add_argument("--retry-delay", type=float, default=3.0)
     parser.add_argument("--headed", action="store_true", help="显示浏览器窗口，便于排查登录状态。")
+    parser.add_argument("--enrich-details", action="store_true", help="兼容旧参数；NGA 详情补时现在默认开启。")
+    parser.add_argument("--no-enrich-details", action="store_true", help="关闭 NGA 详情页补时，直接使用抓取时间。")
+    parser.add_argument("--scan-active-threads", action="store_true", help="额外扫描 NGA 已命中主题的最后几页。")
     args = parser.parse_args()
 
     with connect() as conn:
